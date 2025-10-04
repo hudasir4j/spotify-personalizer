@@ -73,7 +73,7 @@ app = FastAPI()
 # React - Python conversation; CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # React dev server runs on port 3000
+    allow_origins=["http://localhost:3000"],  # React dev server
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -132,19 +132,18 @@ def analyze_lyrics_sentiment(lyrics):
                 lang = detect(line)
                 if lang != 'en':
                     try:
-                        # translate to english using deep-translator (more stable than googletrans)
+                        # translate to english using deep-translator
                         translated_text = GoogleTranslator(source=lang, target='en').translate(line)
                         
                         # make sure translation worked
                         if translated_text and translated_text.lower() != line.lower():
-                            # show: "original → (english)"
+                            # show: "original --> (english)"
                             display_text = f"{line} ({translated_text})"
                             
                     except Exception as e:
                         # if translation fails, just use original
                         print(f"Translation failed for '{line[:30]}...': {e}")
             except (LangDetectException, Exception):
-                # if language detection fails, just use original
                 pass
 
             scored_lines.append({
@@ -159,8 +158,8 @@ def analyze_lyrics_sentiment(lyrics):
     
     return scored_lines
 
+# word frequency analysis
 def get_top_words(highlight_lyrics_list):
-    # word frequency analysis
     all_lyrics = " ".join([hl['original'] for hl in highlight_lyrics_list])
     tokens = word_tokenize(all_lyrics.lower())
     stop_words = set(stopwords.words('english'))
@@ -168,8 +167,8 @@ def get_top_words(highlight_lyrics_list):
     word_counts = Counter(tokens)
     return word_counts.most_common(10)
 
+# map genres to themes, but use sentiment to override certain themes (like sadness)
 def map_genres_to_themes(genres, sentiment_score):
-    # map genres to themes, but use sentiment to override certain themes (like sadness)
     if not genres:
         return "Unknown"
     
@@ -202,12 +201,12 @@ def map_genres_to_themes(genres, sentiment_score):
         else:
             return "Party/Fun"
     else:
-        # if no clear match, return the main genre
+        # if no clear match, return the "main" genre
         return genres[0] if genres else "Unknown"
 
 def process_single_track(track_info):
-    #process single track, makes it quicker when loading everything in!
-    title, artist, genres = track_info  # now includes genres from spotify
+    #process single track (quicker)
+    title, artist, genres = track_info
     
     print(f"Processing: {title} by {artist}")
     
@@ -256,10 +255,7 @@ def themes():
 @app.get('/api/results')
 def get_results():
     if not highlight_lyrics:
-        return JSONResponse(
-            status_code = 404
-            content={"error": "No data available. Please login first."}
-        )
+        return JSONResponse (status_code = 404, content={"error": "No data available. Please login first."})
     top_words = get_top_words(highlight_lyrics)
     theme_counts = Counter(hl['theme'] for hl in highlight_lyrics)
     
@@ -315,7 +311,7 @@ def callback(request: Request):
         print(f"Processing {len(unique_tracks)} unique tracks out of {total_songs} total...")
         start_time = time.time()
         
-        # process tracks in parallel to speed up *egregiously* slow processing times!
+        # process tracks in parallel to speed up *egregiously* slow processing times
         with ThreadPoolExecutor(max_workers=5) as executor:  # process 5 songs at once
             results = list(executor.map(process_single_track, unique_tracks))
         
