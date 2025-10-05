@@ -3,6 +3,8 @@ Analyzing your top Spotify tracks to extract emotional highlights, recurring the
 
 ## Tech Stack
 
+**Disclaimer** - AI Usage: I used tools like Claude to guide the setup of this project, like telling me what the most effective models are for my use cases. The rest of the code, however, was done personally as this is my first project in this backend stack and I wanted to gain the experience.
+
 ### Backend (Python/FastAPI)
 
 * **FastAPI**: API server to manage Spotify OAuth, lyrics retrieval, and processing endpoints.
@@ -30,6 +32,8 @@ Analyzing your top Spotify tracks to extract emotional highlights, recurring the
 * **Dynamic UI**: Floating notes, progress bars, and animated word clouds to visualize analysis.
 
 * **Polling Logic**: Handles asynchronous processing with feedback during analysis.
+
+
 
 ## Features & Challenges
 
@@ -77,3 +81,12 @@ Because the project is in it's alpha phase, there are still many problems I woul
 * Improve theme inference using custom-trained models, more inclusive to all languages
 * Refine sentiment scoring with context-aware NLP (e.g., transformer embeddings for entire verses).
 * Speeding up lyric retrieval and song processing even further, making a better user experience.
+
+## Demonstration
+
+<img width="1508" height="899" alt="Screenshot 2025-10-04 at 7 23 28 PM" src="https://github.com/user-attachments/assets/cf7062d1-fa83-49b2-ac92-1fb5040bad51" />
+<img width="1497" height="882" alt="Screenshot 2025-10-04 at 7 23 40 PM" src="https://github.com/user-attachments/assets/6492d0ee-ee29-4ad6-9496-c5327b97e0b1" />
+<img width="1497" height="856" alt="Screenshot 2025-10-04 at 7 25 17 PM" src="https://github.com/user-attachments/assets/d5af450f-0ef1-4040-a770-77a6ef3e539b" />
+<img width="1482" height="878" alt="Screenshot 2025-10-04 at 7 25 33 PM" src="https://github.com/user-attachments/assets/be7c7db3-5c96-4770-8763-55677075ec77" />
+
+
