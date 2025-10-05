@@ -1,0 +1,275 @@
+@import url('https://fonts.googleapis.com/css2?family=Sanchez&display=swap');
+
+.results-page {
+  min-height: 100vh;
+  background: linear-gradient(45deg, #45062c, #1e0213, #32021F);
+  padding: 60px 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.floating-word {
+  position: absolute;
+  font-size: 18px;
+  opacity: 0.12;
+  color: white;
+  pointer-events: none;
+  animation: floatWord 20s infinite ease-in-out;
+  font-weight: 300;
+  text-transform: lowercase;
+  font-family: 'Sanchez', serif;
+}
+
+@keyframes floatWord {
+  0%, 100% {
+    transform: translateY(100vh) translateX(0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.12;
+  }
+  50% {
+    transform: translateY(30vh) translateX(30px) rotate(5deg);
+  }
+  90% {
+    opacity: 0.12;
+  }
+}
+
+.content {
+  max-width: 900px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.results-header {
+  margin-bottom: 60px;
+
+  h1 {
+    font-family: 'AdverCase', sans-serif;
+    font-size: 56px;
+    color: #a8ff78;
+    margin-bottom: 8px;
+    font-weight: 400;
+  }
+
+  .subtitle {
+    font-family: 'Sanchez', serif;
+    font-size: 18px;
+    color: rgba(255, 255, 255, 0.6);
+  }
+}
+
+h2 {
+  font-family: 'AdverCase', sans-serif;
+  font-size: 32px;
+  color: white;
+  margin-bottom: 24px;
+  font-weight: 400;
+}
+
+.compact-section {
+  margin-bottom: 80px;
+}
+
+.lyrics-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lyric-row {
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 3px solid #a8ff78;
+  padding: 20px 24px;
+  display: grid;
+  grid-template-columns: 200px 1fr auto;
+  gap: 24px;
+  align-items: center;
+  transition: background 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+}
+
+.song-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  .song-title {
+    font-family: 'Sanchez', serif;
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .artist-name {
+    font-family: 'Sanchez', serif;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 14px;
+  }
+}
+
+.lyric-text {
+  font-family: 'Sanchez', serif;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+.theme-label {
+  font-family: 'Sanchez', serif;
+  color: #a8ff78;
+  font-size: 13px;
+  text-transform: lowercase;
+  white-space: nowrap;
+}
+
+.themes-section {
+  margin-bottom: 80px;
+}
+
+.themes-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.theme-bar {
+  .theme-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-family: 'Sanchez', serif;
+
+    .theme-name {
+      color: white;
+      font-size: 16px;
+    }
+
+    .theme-count {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 16px;
+    }
+  }
+
+  .bar-container {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    background: #a8ff78;
+    transition: width 0.5s ease;
+  }
+}
+
+.words-section {
+  margin-bottom: 60px;
+}
+
+.words-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.word-item {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'Sanchez', serif;
+
+  .word {
+    color: white;
+    font-size: 15px;
+  }
+
+  .count {
+    color: #a8ff78;
+    font-size: 15px;
+    font-weight: 600;
+  }
+}
+
+.footer-nav {
+  text-align: center;
+  padding: 40px 0;
+
+  .back-link {
+    font-family: 'Sanchez', serif;
+    color: rgba(255, 255, 255, 0.6);
+    text-decoration: none;
+    font-size: 16px;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: white;
+    }
+  }
+}
+
+.loading-screen,
+.error-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #2d1b4e 0%, #1a0e2e 100%);
+
+  h2 {
+    font-family: 'AdverCase', sans-serif;
+    color: white;
+    margin-bottom: 16px;
+  }
+
+  p {
+    font-family: 'Sanchez', serif;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 24px;
+  }
+
+  .back-button {
+    font-family: 'Sanchez', serif;
+    background: #a8ff78;
+    color: #1a0e2e;
+    padding: 12px 32px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: opacity 0.2s ease;
+
+    &:hover {
+      opacity: 0.9;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .lyric-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .theme-label {
+    justify-self: start;
+  }
+
+  .results-header h1 {
+    font-size: 36px;
+  }
+
+  .words-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

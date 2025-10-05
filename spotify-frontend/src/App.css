@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Sanchez:ital@0;1&display=swap');
+
 .App {
   text-align: center;
 }
@@ -36,3 +38,11 @@
     transform: rotate(360deg);
   }
 }
+
+@font-face {
+  font-family: "AdverCase";
+  src: url("./fonts/AdverCase.otf") format("opentype");
+  font-weight: normal;
+  font-style: normal;
+}
+

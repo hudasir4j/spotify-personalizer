@@ -1,24 +1,75 @@
-import logo from './logo.svg';
-import './App.css';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import Home from './Pages/Home';
+import Loading from './Pages/Loading';
+import Results from './Pages/Results';
+import './App.css'
+
+function LoadingWithRedirect() {
+  const navigate = useNavigate();
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+
+    if (!code) {
+      setError('No authorization code');
+      return;
+    }
+
+    const processAndCheck = async () => {
+      try {
+        fetch(`http://localhost:8000/api/process?code=${code}`);
+        
+        const checkResults = async () => {
+          try {
+            const response = await fetch('http://localhost:8000/api/results');
+            if (response.ok) {
+              const data = await response.json();
+              if (data.highlights && data.highlights.length > 0) {
+                navigate('/results');
+              } else {
+                setTimeout(checkResults, 1000);
+              }
+            } else {
+              setTimeout(checkResults, 1000);
+            }
+          } catch {
+            setTimeout(checkResults, 1000);
+          }
+        };
+
+        setTimeout(checkResults, 2000);
+      } catch (err) {
+        setError('Processing failed');
+      }
+    };
+
+    processAndCheck();
+  }, [navigate]);
+
+  if (error) {
+    return (
+      <div className="loading-page">
+        <p>{error}</p>
+        <a href="/">Go back</a>
+      </div>
+    );
+  }
+
+  return <Loading />;
+}
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/loading" element={<LoadingWithRedirect />} />
+        <Route path="/results" element={<Results />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
