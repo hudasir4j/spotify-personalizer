@@ -51,7 +51,9 @@ candidate_themes = [
 load_dotenv()
 CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
-REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI")
+REDIRECT_URI = os.getenv("REDIRECT_URI")
+FRONTEND_URL = os.getenv("FRONTEND_URL")
+LOADING_URL = os.getenv("LOADING_URL")
 GENIUS_TOKEN = os.getenv("GENIUS_TOKEN")
 
 sp_oauth = SpotifyOAuth(
@@ -68,7 +70,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000","https://spotify-personalizer.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -220,7 +222,7 @@ def callback(request: Request):
     if not code:
         return {"error": "No authorization code received"}
     
-    return RedirectResponse(url=f"http://localhost:3000/loading?code={code}")
+    return RedirectResponse(url=f"{LOADING_URL}?code={code}")
 
 @app.get("/api/process")
 async def process_songs(code: str):
