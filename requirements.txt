@@ -1,0 +1,10 @@
+fastapi==0.104.1
+uvicorn==0.24.0
+spotipy==2.22.1
+lyricsgenius==4.11.5
+transformers==4.35.0
+torch==2.1.0
+langdetect==1.0.9
+deep-translator==1.11.4
+nltk==3.8.1
+python-dotenv==1.0.0
