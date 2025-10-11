@@ -12,7 +12,7 @@ function Results() {
 
   const fetchResults = async () => {
     try {
-      const response = await fetch(`${process.env.FRONTEND_URL}/api/results`);
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/results`);
       const json = await response.json();
       
       if (response.ok) {

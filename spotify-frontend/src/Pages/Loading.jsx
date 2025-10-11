@@ -20,7 +20,7 @@ function Loading() {
           <div className="progress-fill"></div>
         </div>
         <p className="status">fetching lyrics, running sentiment analysis</p>
-        <p className="wait-time">this usually takes 5-10 seconds</p>
+        <p className="wait-time">the beta version will take longer than usual...</p>
       </div>
     </div>
   );
