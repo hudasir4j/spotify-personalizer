@@ -186,6 +186,10 @@ def callback(request: Request):
         return {"error": "No authorization code"}
     return RedirectResponse(f"{LOADING_URL}?code={code}")
 
+@app.get("/")
+def read_root():
+    return {"status": "ok"}
+
 @app.get("/api/process")
 async def process_songs(code: str):
     try:
