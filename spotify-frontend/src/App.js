@@ -1,9 +1,9 @@
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import Home from './Pages/Home';
-import Loading from './Pages/Loading';
-import Results from './Pages/Results';
-import './App.css'
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import Home from "./Pages/Home";
+import Loading from "./Pages/Loading";
+import Results from "./Pages/Results";
+import "./App.css";
 
 function LoadingWithRedirect() {
   const navigate = useNavigate();
@@ -11,42 +11,30 @@ function LoadingWithRedirect() {
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
+    const code = urlParams.get("code");
 
     if (!code) {
-      setError('No authorization code');
+      setError("No authorization code found.");
       return;
     }
 
-    const processAndCheck = async () => {
+    const processCode = async () => {
       try {
-        fetch(`http://localhost:8000/api/process?code=${code}`);
-        
-        const checkResults = async () => {
-          try {
-            const response = await fetch('http://localhost:8000/api/results');
-            if (response.ok) {
-              const data = await response.json();
-              if (data.highlights && data.highlights.length > 0) {
-                navigate('/results');
-              } else {
-                setTimeout(checkResults, 1000);
-              }
-            } else {
-              setTimeout(checkResults, 1000);
-            }
-          } catch {
-            setTimeout(checkResults, 1000);
-          }
-        };
+        // Call backend to process user tracks
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/process?code=${code}`);
+        const data = await res.json();
 
-        setTimeout(checkResults, 2000);
+        if (res.ok && data.status === "complete") {
+          navigate("/results");
+        } else {
+          setError(data.error || "Processing failed");
+        }
       } catch (err) {
-        setError('Processing failed');
+        setError("Could not connect to backend");
       }
     };
 
-    processAndCheck();
+    processCode();
   }, [navigate]);
 
   if (error) {
