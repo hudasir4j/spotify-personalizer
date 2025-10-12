@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Home from "./Pages/Home";
 import Loading from "./Pages/Loading";
 import Results from "./Pages/Results";
+import "./App.css";
 
 function LoadingWithRedirect() {
   const navigate = useNavigate();
@@ -19,7 +20,7 @@ function LoadingWithRedirect() {
 
     const processCode = async () => {
       try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || process.env.REACT_APP_BACKEND_URL;
+        const backendUrl = process.env.REACT_APP_BACKEND_URL;
         const res = await fetch(`${backendUrl}/api/process?code=${code}`);
         const data = await res.json();
 

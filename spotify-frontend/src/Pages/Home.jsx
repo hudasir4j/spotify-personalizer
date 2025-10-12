@@ -1,64 +1,43 @@
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import Home from "./Pages/Home";
-import Loading from "./Pages/Loading";
-import Results from "./Pages/Results";
-import "./App.css";
+import React from 'react';
+import './Home.scss';
 
-function LoadingWithRedirect() {
-  const navigate = useNavigate();
-  const [error, setError] = useState(null);
+function Home() {
+  const notes = Array.from({ length: 8 }, (_, i) => ({
+    id: i,
+    left: Math.random() * 100,
+    delay: Math.random() * 5,
+    duration: 10 + Math.random() * 6,
+    symbol: i % 2 === 0 ? '♪' : '♫'
+  }));
 
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get("code");
-
-    if (!code) {
-      setError("No authorization code found.");
-      return;
-    }
-
-    const processCode = async () => {
-      try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || process.env.REACT_APP_BACKEND_URL;
-        const res = await fetch(`${backendUrl}/api/process?code=${code}`);
-        const data = await res.json();
-
-        if (res.ok && data.status === "complete") {
-          navigate("/results");
-        } else {
-          setError(data.error || "Processing failed");
-        }
-      } catch {
-        setError("Could not connect to backend");
-      }
-    };
-
-    processCode();
-  }, [navigate]);
-
-  if (error) {
-    return (
-      <div className="loading-page">
-        <p>{error}</p>
-        <a href="/">Go back</a>
-      </div>
-    );
-  }
-
-  return <Loading />;
-}
-
-function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/callback" element={<LoadingWithRedirect />} />
-        <Route path="/results" element={<Results />} />
-      </Routes>
-    </BrowserRouter>
+    <div>
+      <div className="gradient">
+        {notes.map(note => (
+          <div
+            key={note.id}
+            className="music-note"
+            style={{
+              left: `${note.left}%`,
+              animationDuration: `${note.duration}s`,
+              animationDelay: `${note.delay}s`
+            }}
+          >
+            {note.symbol}
+          </div>
+        ))}
+        <div className="hero-text">
+          <h1 className="hero-title">
+            your life's soundtrack, <span id="decoded">decoded</span>
+          </h1>
+          <h2>see what moves you</h2>
+          <a href={process.env.REACT_APP_LOGIN_URL} className="button">
+            <span>log into spotify</span>
+          </a>
+        </div>
+      </div>
+    </div>
   );
 }
 
-export default App;
+export default Home;
