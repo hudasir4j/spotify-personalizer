@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import Home from "./Pages/Home";
 import Loading from "./Pages/Loading";
 import Results from "./Pages/Results";
-import "./App.css";
 
 function LoadingWithRedirect() {
   const navigate = useNavigate();
