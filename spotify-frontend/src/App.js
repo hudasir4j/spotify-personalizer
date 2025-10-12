@@ -20,8 +20,8 @@ function LoadingWithRedirect() {
 
     const processCode = async () => {
       try {
-        // Call backend to process user tracks
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/process?code=${code}`);
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || process.env.REACT_APP_BACKEND_URL;
+        const res = await fetch(`${backendUrl}/api/process?code=${code}`);
         const data = await res.json();
 
         if (res.ok && data.status === "complete") {
@@ -29,7 +29,7 @@ function LoadingWithRedirect() {
         } else {
           setError(data.error || "Processing failed");
         }
-      } catch (err) {
+      } catch {
         setError("Could not connect to backend");
       }
     };
@@ -54,7 +54,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/loading" element={<LoadingWithRedirect />} />
+        <Route path="/callback" element={<LoadingWithRedirect />} />
         <Route path="/results" element={<Results />} />
       </Routes>
     </BrowserRouter>

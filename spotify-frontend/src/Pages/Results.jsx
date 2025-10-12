@@ -12,7 +12,8 @@ function Results() {
 
   const fetchResults = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/results`);
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || process.env.REACT_APP_BACKEND_URL;
+      const response = await fetch(`${backendUrl}/api/results`);
       const json = await response.json();
 
       if (response.ok) {
@@ -20,7 +21,7 @@ function Results() {
       } else {
         setError(json.error || 'Failed to load results');
       }
-    } catch (err) {
+    } catch {
       setError('Could not connect to server');
     } finally {
       setLoading(false);
@@ -106,10 +107,7 @@ function Results() {
                     <span className="theme-count">{theme.count}</span>
                   </div>
                   <div className="bar-container">
-                    <div 
-                      className="bar-fill" 
-                      style={{ width: `${percentage}%` }}
-                    />
+                    <div className="bar-fill" style={{ width: `${percentage}%` }} />
                   </div>
                 </div>
               );
