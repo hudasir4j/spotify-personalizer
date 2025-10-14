@@ -68,7 +68,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -220,7 +220,7 @@ def callback(request: Request):
     if not code:
         return {"error": "No authorization code received"}
     
-    return RedirectResponse(url=f"http://localhost:3000/loading?code={code}")
+    return RedirectResponse(url=f"http://127.0.0.1:3000/loading?code={code}")
 
 @app.get("/api/process")
 async def process_songs(code: str):
