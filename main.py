@@ -182,7 +182,7 @@ def callback(request: Request):
     code = request.query_params.get("code")
     if not code:
         return {"error": "No authorization code received"}
-    return RedirectResponse(url=f"http://127.0.0.1:3000/loading?code={code}")
+    return RedirectResponse(url=f"{FRONTEND_URL}/loading?code={code}")
 
 @app.get("/api/process")
 async def process_songs(code: str):
