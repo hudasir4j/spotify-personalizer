@@ -7,7 +7,6 @@ nltk==3.9.2
 regex==2025.9.18
 requests==2.32.5
 deep-translator==1.11.4
-indic-transliteration==2.3.75
 transformers==4.57.0
 torch==2.8.0
 tqdm==4.67.1
