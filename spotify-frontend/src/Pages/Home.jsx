@@ -28,7 +28,7 @@
           <div className="hero-text">
             <h1 className = "hero-title">your life’s soundtrack, <span id = "decoded">decoded</span></h1>
             <h2>see what moves you</h2>
-            <a href="http://localhost:8000/login" className="button">
+            <a href={`${process.env.REACT_APP_BACKEND_URL}/login`} className="button">
               <span>log into spotify</span>
             </a>
           </div>
