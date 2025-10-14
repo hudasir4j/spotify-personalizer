@@ -30,6 +30,7 @@ load_dotenv()
 CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI")
+FRONTEND_URL = os.getenv("FRONTEND_URL")
 GENIUS_TOKEN = os.getenv("GENIUS_TOKEN")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
