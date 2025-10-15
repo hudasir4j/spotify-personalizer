@@ -11,10 +11,14 @@ nltk.download('stopwords', quiet=True)
 
 app = FastAPI()
 
-origins = [os.getenv("FRONTEND_URL"), "http://localhost:3000"]
+origins = [
+    os.getenv("FRONTEND_URL"),
+    "http://localhost:3000",
+    "https://spotify-personalizer.vercel.app"
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=[origin for origin in origins if origin],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -62,16 +66,13 @@ def process_data(code: str):
     for item in top_tracks.get("items", []):
         track = item["name"]
         artist = item["artists"][0]["name"]
-        print(f"Analyzing {track} by {artist}")
 
         genius_res = requests.get(
             f"https://api.genius.com/search?q={track} {artist}",
             headers={"Authorization": f"Bearer {GENIUS_TOKEN}"}
         ).json()
-
         lyrics_url = genius_res["response"]["hits"][0]["result"]["url"] if genius_res["response"]["hits"] else None
 
-        # Sentiment via Hugging Face API (no local model)
         hf_resp = requests.post(
             "https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english",
             headers={"Authorization": f"Bearer {HF_TOKEN}"},
