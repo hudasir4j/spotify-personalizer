@@ -15,16 +15,24 @@ from concurrent.futures import ThreadPoolExecutor
 import requests
 from langdetect import detect
 from deep_translator import GoogleTranslator
+
 import nltk
 
 try:
     nltk.data.find('corpora/stopwords')
 except LookupError:
     nltk.download('stopwords')
+
 try:
     nltk.data.find('tokenizers/punkt')
 except LookupError:
     nltk.download('punkt')
+
+try:
+    nltk.data.find('tokenizers/punkt_tab')
+except LookupError:
+    nltk.download('punkt_tab')
+
 
 load_dotenv()
 CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
