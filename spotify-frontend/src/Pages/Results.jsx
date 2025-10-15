@@ -7,25 +7,29 @@ function Results() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchResults();
-  }, []);
-
-  const fetchResults = async () => {
-    try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/results`);
-      const json = await response.json();
-      
-      if (response.ok) {
-        setData(json);
-      } else {
-        setError(json.error || 'Failed to load results');
-      }
-    } catch (err) {
-      setError('Could not connect to server');
-    } finally {
+    const storedData = localStorage.getItem('resultsData');
+    if (storedData) {
+      setData(JSON.parse(storedData));
       setLoading(false);
+    } else {
+      const fetchResults = async () => {
+        try {
+          const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/results`);
+          const json = await response.json();
+          if (response.ok) {
+            setData(json);
+          } else {
+            setError(json.error || 'Failed to load results');
+          }
+        } catch {
+          setError('Could not connect to server');
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchResults();
     }
-  };
+  }, []);
 
   if (loading) {
     return (
@@ -46,8 +50,6 @@ function Results() {
   }
 
   if (!data) return null;
-
-  const maxThemeCount = Math.max(...data.themes.map(t => t.count));
 
   const floatingWords = data.top_words.map((wordObj, i) => ({
     word: wordObj.word,

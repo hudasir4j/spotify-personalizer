@@ -6,9 +6,8 @@ function Loading() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setDots(prev => prev.length >= 3 ? '' : prev + '.');
+      setDots(prev => (prev.length >= 3 ? '' : prev + '.'));
     }, 500);
-
     return () => clearInterval(interval);
   }, []);
 
@@ -20,7 +19,7 @@ function Loading() {
           <div className="progress-fill"></div>
         </div>
         <p className="status">fetching lyrics, running sentiment analysis</p>
-        <p className="wait-time">this usually takes 5-10 seconds</p>
+        <p className="wait-time">this usually takes 5–10 seconds</p>
       </div>
     </div>
   );

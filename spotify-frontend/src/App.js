@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Home from './Pages/Home';
 import Loading from './Pages/Loading';
 import Results from './Pages/Results';
-import './App.css'
+import './App.css';
 
 function LoadingWithRedirect() {
   const navigate = useNavigate();
@@ -18,35 +18,25 @@ function LoadingWithRedirect() {
       return;
     }
 
-    const processAndCheck = async () => {
+    const processAndNavigate = async () => {
       try {
-        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/process?code=${code}`);
-        
-        const checkResults = async () => {
-          try {
-            const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/results`);
-            if (response.ok) {
-              const data = await response.json();
-              if (data.highlights && data.highlights.length > 0) {
-                navigate('/results');
-              } else {
-                setTimeout(checkResults, 1000);
-              }
-            } else {
-              setTimeout(checkResults, 1000);
-            }
-          } catch {
-            setTimeout(checkResults, 1000);
-          }
-        };
-
-        setTimeout(checkResults, 2000);
+        const response = await fetch(
+          `${process.env.REACT_APP_BACKEND_URL}/api/process?code=${encodeURIComponent(code)}`
+        );
+        const data = await response.json();
+        if (!response.ok) {
+          setError(data.error || 'Failed to process data');
+          return;
+        }
+        localStorage.setItem('resultsData', JSON.stringify(data));
+        navigate('/results');
       } catch (err) {
-        setError('Processing failed');
+        console.error(err);
+        setError('Could not connect to server');
       }
     };
 
-    processAndCheck();
+    processAndNavigate();
   }, [navigate]);
 
   if (error) {

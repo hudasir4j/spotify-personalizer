@@ -13,7 +13,7 @@ from collections import Counter
 import time
 from concurrent.futures import ThreadPoolExecutor
 import requests
-from langdetect import detect, LangDetectException
+from langdetect import detect
 from deep_translator import GoogleTranslator
 import nltk
 
@@ -41,88 +41,92 @@ sp_oauth = SpotifyOAuth(
     scope="user-top-read user-read-recently-played"
 )
 
-genius = lyricsgenius.Genius(GENIUS_TOKEN)
-highlight_lyrics = []
+genius = lyricsgenius.Genius(GENIUS_TOKEN, timeout=10)
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://spotify-personalizer.vercel.app", "http://localhost:3000"],
+    allow_origins=[
+        "https://spotify-personalizer.vercel.app",
+        "http://localhost:3000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-candidate_themes = [
-    "Love/Romance", "Heartbreak/Sadness", "Party/Fun", "Motivation/Inspiration",
-    "Spiritual/Devotional", "Friendship", "Loneliness", "Celebration", "Life struggles"
-]
-
 def clean_song_title(title):
-    clean_title = re.sub(r'\(.*?\)', '', title)
-    clean_title = re.sub(r'-.*', '', clean_title)
-    clean_title = re.sub(r'\[.*?\]', '', clean_title)
-    return clean_title.strip()
+    t = re.sub(r'\(.*?\)', '', title)
+    t = re.sub(r'-.*', '', t)
+    t = re.sub(r'\[.*?\]', '', t)
+    return t.strip()
 
 def get_song_lyrics(title, artist):
-    clean_title = clean_song_title(title)
+    ct = clean_song_title(title)
     try:
-        song = genius.search_song(clean_title, artist)
+        song = genius.search_song(ct, artist)
         if not song or not song.lyrics:
             return None
         return song.lyrics
-    except:
+    except Exception:
         return None
 
+def call_hf_sentiment(text):
+    try:
+        resp = requests.post(
+            "https://api-inference.huggingface.co/models/tabularisai/multilingual-sentiment-analysis",
+            headers={"Authorization": f"Bearer {HF_TOKEN}"},
+            json={"inputs": text},
+            timeout=20
+        )
+        result = resp.json()
+        if isinstance(result, list) and result:
+            label = result[0].get("label", "NEUTRAL")
+            score = result[0].get("score", 0)
+            if label.lower() == "negative":
+                score = -score
+            return score
+    except Exception:
+        return None
+    return None
+
 def analyze_lyrics_sentiment(lyrics):
-    lines = [line.strip() for line in lyrics.split("\n") if line.strip()]
+    lines = [l.strip() for l in lyrics.split("\n") if l.strip()]
     clean_lines = []
     for line in lines:
-        line = re.sub(r'\[.*?\]', '', line).strip()
-        if any(keyword.lower() in line.lower() for keyword in ["contributors","translations","romanization","lyrics by","embed"]):
+        s = re.sub(r'\[.*?\]', '', line).strip()
+        if any(k in s.lower() for k in ["contributors", "translations", "romanization", "lyrics by", "embed"]):
             continue
-        if line:
-            clean_lines.append(line)
-    scored_lines = []
+        if s:
+            clean_lines.append(s)
+    scored = []
     for line in clean_lines:
-        display_text = line
+        display = line
         try:
             lang = detect(line)
             if lang != 'en':
                 try:
-                    translated_text = GoogleTranslator(source=lang, target='en').translate(line)
-                    if translated_text and translated_text.lower() != line.lower():
-                        display_text = f"{line} ({translated_text})"
-                except:
+                    translated = GoogleTranslator(source=lang, target='en').translate(line)
+                    if translated and translated.lower() != line.lower():
+                        display = f"{line} ({translated})"
+                except Exception:
                     pass
-        except:
+        except Exception:
             pass
-        try:
-            response = requests.post(
-                "https://api-inference.huggingface.co/models/tabularisai/multilingual-sentiment-analysis",
-                headers={"Authorization": f"Bearer {HF_TOKEN}"},
-                json={"inputs": display_text},
-                timeout=30
-            )
-            result = response.json()
-            if isinstance(result, list) and result:
-                label = result[0].get('label','NEUTRAL')
-                score = result[0].get('score',0)
-                if label.lower() == "negative":
-                    score = -score
-                scored_lines.append({'original': line, 'display': display_text, 'score': score})
-        except:
+        score = call_hf_sentiment(display)
+        if score is None:
             continue
-    return scored_lines
+        scored.append({"original": line, "display": display, "score": score})
+    return scored
 
 def get_top_words(highlight_lyrics_list):
     all_lyrics = " ".join([hl['original'] for hl in highlight_lyrics_list])
     tokens = word_tokenize(all_lyrics.lower())
     stop_words = set(stopwords.words('english'))
     tokens = [t for t in tokens if t.isalpha() and t not in stop_words]
-    word_counts = Counter(tokens)
-    return word_counts.most_common(10)
+    counts = Counter(tokens)
+    return counts.most_common(10)
 
 def map_genres_to_themes(genres, sentiment_score):
     if not genres:
@@ -130,102 +134,99 @@ def map_genres_to_themes(genres, sentiment_score):
     if sentiment_score < -0.7:
         return "Heartbreak/Sadness"
     genre_text = " ".join(genres).lower()
-    if any(word in genre_text for word in ['r&b','soul','neo soul','contemporary r&b']):
+    if any(w in genre_text for w in ['r&b','soul','neo soul','contemporary r&b']):
         return "Love/Romance"
-    elif any(word in genre_text for word in ['hip hop','rap','trap','drill','gangsta']):
+    if any(w in genre_text for w in ['hip hop','rap','trap','drill','gangsta']):
         return "Life struggles"
-    elif any(word in genre_text for word in ['rock','metal','punk','grunge']):
+    if any(w in genre_text for w in ['rock','metal','punk','grunge']):
         return "Motivation/Inspiration"
-    elif any(word in genre_text for word in ['gospel','christian','devotional','spiritual']):
+    if any(w in genre_text for w in ['gospel','christian','devotional','spiritual']):
         return "Spiritual/Devotional"
-    elif any(word in genre_text for word in ['folk','acoustic','singer-songwriter']):
+    if any(w in genre_text for w in ['folk','acoustic','singer-songwriter']):
         return "Loneliness"
-    elif any(word in genre_text for word in ['latin','reggaeton','salsa','bachata']):
+    if any(w in genre_text for w in ['latin','reggaeton','salsa','bachata']):
         return "Celebration"
-    elif any(word in genre_text for word in ['sad','indie','alternative','emo','blues']):
+    if any(w in genre_text for w in ['sad','indie','alternative','emo','blues']):
         return "Heartbreak/Sadness"
-    elif any(word in genre_text for word in ['pop','dance','edm','house','electronic','party']):
-        if sentiment_score < -0.3:
-            return "Heartbreak/Sadness"
-        else:
-            return "Party/Fun"
-    else:
-        return genres[0] if genres else "Unknown"
+    if any(w in genre_text for w in ['pop','dance','edm','house','electronic','party']):
+        return "Party/Fun" if sentiment_score >= -0.3 else "Heartbreak/Sadness"
+    return genres[0] if genres else "Unknown"
 
-def process_single_track(track_info):
-    title, artist, genres = track_info
+def process_single_track(track_tuple):
+    title, artist, genres = track_tuple
     lyrics = get_song_lyrics(title, artist)
     if not lyrics:
         return None
-    scored_lines = analyze_lyrics_sentiment(lyrics)
-    if not scored_lines:
+    scored = analyze_lyrics_sentiment(lyrics)
+    if not scored:
         return None
-    scored_lines.sort(key=lambda x: abs(x['score']), reverse=True)
-    most_emotional_line = scored_lines[0]
-    sentiment_score = most_emotional_line['score']
+    scored.sort(key=lambda x: abs(x['score']), reverse=True)
+    top = scored[0]
+    sentiment_score = top['score']
     theme = map_genres_to_themes(genres, sentiment_score) if genres else "Unknown"
     return {
-        'song': title,
-        'artist': artist,
-        'line': most_emotional_line['display'],
-        'original': most_emotional_line['original'],
-        'theme': theme,
-        'genres': genres[:3] if genres else []
+        "song": title,
+        "artist": artist,
+        "line": top['display'],
+        "original": top['original'],
+        "theme": theme,
+        "genres": genres[:3] if genres else []
     }
 
 @app.get("/login")
 def login():
-    auth_url = sp_oauth.get_authorize_url()
-    return RedirectResponse(auth_url)
+    url = sp_oauth.get_authorize_url()
+    return RedirectResponse(url)
 
 @app.get("/callback")
 def callback(request: Request):
     code = request.query_params.get("code")
     if not code:
-        return {"error": "No authorization code received"}
+        return JSONResponse(status_code=400, content={"error":"No authorization code received"})
     return RedirectResponse(url=f"{FRONTEND_URL}/loading?code={code}")
 
 @app.get("/api/process")
-async def process_songs(code: str):
+async def process_songs(code: str = None):
     try:
+        if not code:
+            return JSONResponse(status_code=400, content={"error":"Missing code parameter"})
         token_info = sp_oauth.get_access_token(code)
-        access_token = token_info["access_token"]
+        access_token = token_info.get("access_token")
+        if not access_token:
+            return JSONResponse(status_code=400, content={"error":"Could not obtain access token"})
         sp = Spotify(auth=access_token)
-        top_tracks = sp.current_user_top_tracks(limit=10, time_range='short_term')["items"]
-        highlight_lyrics.clear()
-        unique_tracks = []
-        seen_songs = set()
-        for track in top_tracks:
-            title = track['name']
-            artist = track['artists'][0]['name']
-            artist_id = track['artists'][0]['id']
-            try:
-                artist_info = sp.artist(artist_id)
-                genres = artist_info['genres']
-            except:
-                genres = []
-            song_key = f"{title.lower().strip()}_{artist.lower().strip()}"
-            if song_key not in seen_songs:
-                unique_tracks.append((title, artist, genres))
-                seen_songs.add(song_key)
-        start_time = time.time()
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            results = list(executor.map(process_single_track, unique_tracks))
-        successful_results = [result for result in results if result is not None]
-        highlight_lyrics.extend(successful_results)
-        return {"status": "complete", "count": len(successful_results)}
+        items = sp.current_user_top_tracks(limit=10, time_range='short_term').get("items", [])
+        unique = []
+        seen = set()
+        for tr in items:
+            title = tr.get("name")
+            artist = tr.get("artists", [{}])[0].get("name")
+            artist_id = tr.get("artists", [{}])[0].get("id")
+            genres = []
+            if artist_id:
+                try:
+                    artist_info = sp.artist(artist_id)
+                    genres = artist_info.get("genres", [])
+                except Exception:
+                    genres = []
+            key = f"{title.lower().strip()}_{artist.lower().strip()}"
+            if key not in seen:
+                unique.append((title, artist, genres))
+                seen.add(key)
+        start = time.time()
+        results = []
+        with ThreadPoolExecutor(max_workers=5) as ex:
+            for res in ex.map(process_single_track, unique):
+                if res:
+                    results.append(res)
+        top_words = get_top_words(results)
+        theme_counts = Counter(r['theme'] for r in results)
+        payload = {
+            "highlights": results,
+            "top_words": [{"word": w, "count": c} for w, c in top_words],
+            "themes": [{"theme": t, "count": c} for t, c in theme_counts.most_common()],
+            "total_songs": len(results)
+        }
+        return payload
     except Exception as e:
-        return {"error": f"An error occurred: {str(e)}"}
-
-@app.get("/api/results")
-def get_results():
-    if not highlight_lyrics:
-        return JSONResponse(status_code=404, content={"error": "No data available"})
-    top_words = get_top_words(highlight_lyrics)
-    theme_counts = Counter(hl['theme'] for hl in highlight_lyrics)
-    return {
-        "highlights": highlight_lyrics,
-        "top_words": [{"word": word, "count": count} for word, count in top_words],
-        "themes": [{"theme": theme, "count": count} for theme, count in theme_counts.most_common()],
-        "total_songs": len(highlight_lyrics)
-    }
+        return JSONResponse(status_code=500, content={"error": str(e)})
