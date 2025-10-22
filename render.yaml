@@ -2,20 +2,20 @@ services:
   - type: web
     name: spotify-backend
     env: python
-    buildCommand: "pip install -r requirements.txt && python -c 'import nltk; nltk.download(\"stopwords\"); nltk.download(\"punkt\")'"
-    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
-        value: 3.9.0
+        value: 3.9.16
       - key: SPOTIFY_CLIENT_ID
         sync: false
       - key: SPOTIFY_CLIENT_SECRET
         sync: false
+      - key: REDIRECT_URI
+        sync: false
       - key: GENIUS_TOKEN
         sync: false
       - key: HF_API_TOKEN
-        sync: false
-      - key: REDIRECT_URI
         sync: false
       - key: FRONTEND_URL
         sync: false
