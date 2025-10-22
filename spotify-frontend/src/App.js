@@ -24,7 +24,7 @@ function LoadingWithRedirect() {
         
         const checkResults = async () => {
           try {
-            const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/results`)
+            const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/results`);
             if (response.ok) {
               const data = await response.json();
               if (data.highlights && data.highlights.length > 0) {
