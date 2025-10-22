@@ -33,7 +33,7 @@ except LookupError:
 if os.environ.get("PYTHON_ENV") == "local":
     load_dotenv(".env.local")
 else:
-    load_dotenv(".env")
+    pass
 
 
 CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
