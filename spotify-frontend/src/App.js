@@ -1,62 +1,65 @@
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import Home from './Pages/Home';
-import Loading from './Pages/Loading';
-import Results from './Pages/Results';
-import './App.css'
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import Home from "./Pages/Home";
+import Loading from "./Pages/Loading";
+import Results from "./Pages/Results";
+import "./App.css";
 
 function LoadingWithRedirect() {
   const navigate = useNavigate();
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-
+    const code = new URLSearchParams(window.location.search).get("code");
     if (!code) {
-      setError('No authorization code');
+      setError("No authorization code");
       return;
     }
 
     const processAndCheck = async () => {
       try {
-        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/process?code=${code}`);
-        
-        const checkResults = async () => {
+        const processRes = await fetch(
+          `${process.env.REACT_APP_BACKEND_URL}/api/process?code=${code}`
+        );
+        const processData = await processRes.json();
+        if (processData.error) throw new Error(processData.error);
+
+        const sessionId = processData.session_id;
+        sessionStorage.setItem("session_id", sessionId);
+
+        const pollResults = async () => {
           try {
-            const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/results`);
-            if (response.ok) {
-              const data = await response.json();
-              if (data.highlights && data.highlights.length > 0) {
-                navigate('/results');
-              } else {
-                setTimeout(checkResults, 1000);
+            const resultsRes = await fetch(
+              `${process.env.REACT_APP_BACKEND_URL}/api/results?session_id=${sessionId}`
+            );
+            if (resultsRes.ok) {
+              const resData = await resultsRes.json();
+              if (resData.highlights?.length) {
+                navigate("/results");
+                return;
               }
-            } else {
-              setTimeout(checkResults, 1000);
             }
+            setTimeout(pollResults, 2000);
           } catch {
-            setTimeout(checkResults, 1000);
+            setTimeout(pollResults, 2000);
           }
         };
 
-        setTimeout(checkResults, 2000);
+        pollResults();
       } catch (err) {
-        setError('Processing failed');
+        setError("Processing failed: " + err.message);
       }
     };
-
     processAndCheck();
   }, [navigate]);
 
-  if (error) {
+  if (error)
     return (
-      <div className="loading-page">
+      <div>
         <p>{error}</p>
-        <a href="/">Go back</a>
+        <a href="/">Go Back</a>
       </div>
     );
-  }
 
   return <Loading />;
 }
