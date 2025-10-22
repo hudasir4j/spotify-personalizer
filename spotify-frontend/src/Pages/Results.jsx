@@ -12,7 +12,7 @@ function Results() {
 
   const fetchResults = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/results');
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/results`);
       const json = await response.json();
       
       if (response.ok) {

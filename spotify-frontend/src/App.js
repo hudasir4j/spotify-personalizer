@@ -20,11 +20,11 @@ function LoadingWithRedirect() {
 
     const processAndCheck = async () => {
       try {
-        fetch(`http://localhost:8000/api/process?code=${code}`);
+        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/process?code=${code}`);
         
         const checkResults = async () => {
           try {
-            const response = await fetch('http://localhost:8000/api/results');
+            const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/results`)
             if (response.ok) {
               const data = await response.json();
               if (data.highlights && data.highlights.length > 0) {
