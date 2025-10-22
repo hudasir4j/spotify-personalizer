@@ -4,7 +4,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
-import lyricsgenius
 import os
 import re
 import asyncio
@@ -33,26 +32,25 @@ except LookupError:
 if os.environ.get("PYTHON_ENV") == "local":
     load_dotenv(".env.local")
 
-CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
-CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
+SPOTIPY_CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID")
+SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
+FRONTEND_URL = os.getenv("FRONTEND_URL")
 GENIUS_TOKEN = os.getenv("GENIUS_TOKEN")
 HF_API_TOKEN = os.getenv("HF_API_TOKEN")
 
 # Debug prints
 print(f"🔍 REDIRECT_URI: {REDIRECT_URI}")
 print(f"🔍 FRONTEND_URL: {os.getenv('FRONTEND_URL')}")
-print(f"🔍 CLIENT_ID: {CLIENT_ID[:10]}..." if CLIENT_ID else "None")
+print(f"🔍 CLIENT_ID: {SPOTIPY_CLIENT_ID[:10]}..." if SPOTIPY_CLIENT_ID else "None")
 
-# Spotipy & Genius Setup
+# Spotipy Setup
 sp_oauth = SpotifyOAuth(
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET,
+    client_id=SPOTIPY_CLIENT_ID,
+    client_secret=SPOTIPY_CLIENT_SECRET,
     redirect_uri=REDIRECT_URI,
     scope="user-top-read user-read-recently-played"
 )
-
-genius = lyricsgenius.Genius(GENIUS_TOKEN)
 
 # Fast API
 app = FastAPI()
@@ -73,42 +71,16 @@ def clean_song_title(title):
 
 def get_song_lyrics(title, artist):
     try:
-        clean_title = clean_song_title(title)
-        song = genius.search_song(clean_title, artist)
-        if not song or not song.lyrics:
+        query = f"{title} {artist}"
+        headers = {"Authorization": f"Bearer {GENIUS_TOKEN}"}
+        response = requests.get(f"https://api.genius.com/search?q={query}", headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        hits = data.get("response", {}).get("hits", [])
+        if not hits:
             return None
-        
-        lyrics = song.lyrics
-        
-        # Remove common Genius metadata patterns
-        # Remove "X Contributors" lines
-        lyrics = re.sub(r'\d+\s+Contributors?.*?(?=\n|$)', '', lyrics, flags=re.IGNORECASE)
-        
-        # Remove "Translations" references
-        lyrics = re.sub(r'Translations\w*', '', lyrics, flags=re.IGNORECASE)
-        
-        # Remove "Romanization" references
-        lyrics = re.sub(r'Romanization', '', lyrics, flags=re.IGNORECASE)
-        
-        # Remove song title repetitions (usually at the start)
-        lyrics = re.sub(r'^.*?Lyrics', '', lyrics, flags=re.IGNORECASE)
-        
-        # Remove section headers like [Verse 1], [Chorus], [Intro: Artist]
-        lyrics = re.sub(r'\[.*?\]', '', lyrics)
-        
-        # Remove "Embed" and other metadata
-        lyrics = re.sub(r'\bEmbed\b', '', lyrics, flags=re.IGNORECASE)
-        
-        # Remove "See ... LiveGet tickets as low as $X"
-        lyrics = re.sub(r'See.*?Live.*?\$\d+', '', lyrics, flags=re.IGNORECASE)
-        
-        # Remove extra whitespace and clean up
-        lyrics = re.sub(r'\n\s*\n', '\n', lyrics)  # Multiple newlines to single
-        lyrics = re.sub(r'^\s+', '', lyrics, flags=re.MULTILINE)  # Leading spaces
-        lyrics = lyrics.strip()
-        
-        return lyrics if lyrics else None
-        
+        song_url = hits[0]["result"]["url"]
+        return song_url
     except Exception as e:
         print(f"Error fetching lyrics: {e}")
         return None
@@ -195,7 +167,7 @@ def callback(request: Request):
     code = request.query_params.get("code")
     if not code:
         return {"error": "No authorization code received"}
-    return RedirectResponse(url=f"{os.getenv('FRONTEND_URL')}/loading?code={code}")
+    return RedirectResponse(url=f"{FRONTEND_URL}/loading?code={code}")
 
 @app.get("/api/process")
 async def process_songs(code: str):
@@ -231,14 +203,11 @@ async def process_songs(code: str):
         end_time = time.time()
         print(f"Processed {len(highlights)} tracks in {round(end_time - start_time, 2)}s")
 
-        # Map emotion themes to aesthetic themes for the recurring themes section
         aesthetic_themes = [map_to_aesthetic_theme(h['theme']) for h in highlights]
         theme_counts = Counter(aesthetic_themes)
 
-        # Top words
         top_words = get_top_words(highlights)
 
-        # Store in-memory for /api/results
         app.state.highlights = highlights
         app.state.top_words = top_words
         app.state.themes = [{"theme": k, "count": v} for k, v in theme_counts.most_common()]
