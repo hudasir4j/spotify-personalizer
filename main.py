@@ -14,6 +14,7 @@ from collections import Counter
 import nltk
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
+from lyricsgenius import Genius
 
 # NLTK setup
 try:
@@ -36,7 +37,8 @@ FRONTEND_URL = os.getenv("FRONTEND_URL")
 GENIUS_TOKEN = os.getenv("GENIUS_TOKEN")
 HF_API_TOKEN = os.getenv("HF_API_TOKEN")
 
-genius = lyricsgenius.Genius(GENIUS_TOKEN)
+genius = Genius(GENIUS_TOKEN)
+
 sp_oauth = SpotifyOAuth(
     client_id=SPOTIPY_CLIENT_ID,
     client_secret=SPOTIPY_CLIENT_SECRET,
