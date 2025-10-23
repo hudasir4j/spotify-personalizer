@@ -40,8 +40,8 @@ HF_API_TOKEN = os.getenv("HF_API_TOKEN")
 genius = Genius(GENIUS_TOKEN)
 
 sp_oauth = SpotifyOAuth(
-    client_id=SPOTIPY_CLIENT_ID,
-    client_secret=SPOTIPY_CLIENT_SECRET,
+    client_id=CLIENT_ID,
+    client_secret=CLIENT_SECRET,
     redirect_uri=REDIRECT_URI,
     scope="user-top-read user-read-recently-played"
 )
