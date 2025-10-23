@@ -16,17 +16,12 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from lyricsgenius import Genius
 
-# NLTK setup
-try:
-    nltk.data.find('corpora/stopwords')
-except LookupError:
-    nltk.download('stopwords')
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt')
+for resource in ["stopwords", "punkt", "punkt_tab"]:
+    try:
+        nltk.data.find(resource)
+    except LookupError:
+        nltk.download(resource)
 
-# .env Variables
 if os.environ.get("PYTHON_ENV") == "local":
     load_dotenv(".env.local")
 
@@ -37,7 +32,8 @@ FRONTEND_URL = os.getenv("FRONTEND_URL")
 GENIUS_TOKEN = os.getenv("GENIUS_TOKEN")
 HF_API_TOKEN = os.getenv("HF_API_TOKEN")
 
-genius = Genius(GENIUS_TOKEN)
+genius = Genius(GENIUS_TOKEN, timeout=15, retries=3, sleep_time=0.3, remove_section_headers=True)
+genius._session.headers["User-Agent"] = "Mozilla/5.0 (compatible; SpotifyPersonalizer/1.0)"
 
 sp_oauth = SpotifyOAuth(
     client_id=CLIENT_ID,
@@ -55,7 +51,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------- SESSION MANAGEMENT ----------
 session_data = {}
 
 def clean_old_sessions():
@@ -64,7 +59,6 @@ def clean_old_sessions():
     for key in stale:
         del session_data[key]
 
-# ---------- HELPERS ----------
 def clean_song_title(title):
     title = re.sub(r'\(.*?\)', '', title)
     title = re.sub(r'\[.*?\]', '', title)
@@ -73,16 +67,17 @@ def clean_song_title(title):
 
 def get_song_lyrics(title, artist):
     try:
-        song = genius.search_song(clean_song_title(title), artist)
+        clean_title = clean_song_title(title)
+        song = genius.search_song(clean_title, artist)
         if not song or not song.lyrics:
             return None
-        lyrics = re.sub(r'\[.*?\]', '', song.lyrics)
+        lyrics = song.lyrics
+        lyrics = re.sub(r'\[.*?\]', '', lyrics)
         lyrics = re.sub(r'\d+\s+Contributors?.*', '', lyrics)
         lyrics = re.sub(r'Embed', '', lyrics)
-        lyrics = lyrics.strip()
-        return lyrics
+        return lyrics.strip()
     except Exception as e:
-        print("Error getting lyrics:", e)
+        print(f"Error fetching lyrics: {e}")
         return None
 
 def analyze_lyrics(lyrics):
@@ -119,7 +114,6 @@ def process_track(info):
     line, themes = analyze_lyrics(lyrics)
     return {"song": title, "artist": artist, "line": line, "theme": themes[0], "genres": genres[:3]}
 
-# ---------- ROUTES ----------
 @app.get("/login")
 def login():
     return RedirectResponse(sp_oauth.get_authorize_url())
@@ -129,7 +123,7 @@ def callback(request: Request):
     code = request.query_params.get("code")
     if not code:
         return {"error": "Missing code"}
-    return RedirectResponse(f"{os.getenv('FRONTEND_URL')}/loading?code={code}")
+    return RedirectResponse(f"{FRONTEND_URL}/loading?code={code}")
 
 @app.get("/api/process")
 def process_songs(code: str):
@@ -137,7 +131,6 @@ def process_songs(code: str):
         token = sp_oauth.get_access_token(code)
         sp = Spotify(auth=token["access_token"])
         top_tracks = sp.current_user_top_tracks(limit=10)["items"]
-
         track_data = []
         seen = set()
         for t in top_tracks:
@@ -149,16 +142,13 @@ def process_songs(code: str):
             genres = sp.artist(artist_id).get("genres", [])
             track_data.append((title, artist, genres))
             seen.add(f"{title.lower()}_{artist.lower()}")
-
         start = time.time()
         with ThreadPoolExecutor(max_workers=5) as ex:
             results = list(ex.map(process_track, track_data))
         highlights = [r for r in results if r]
-
         themes = [map_to_aesthetic_theme(h["theme"]) for h in highlights]
         counts = Counter(themes)
         top_words = get_top_words(highlights)
-
         session_id = hashlib.md5(code.encode()).hexdigest()
         session_data[session_id] = {
             "data": {
