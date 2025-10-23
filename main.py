@@ -65,17 +65,28 @@ def clean_song_title(title):
     title = re.sub(r'-.*', '', title)
     return title.strip()
 
+import requests
+
 def get_song_lyrics(title, artist):
     try:
-        clean_title = clean_song_title(title)
-        song = genius.search_song(clean_title, artist)
-        if not song or not song.lyrics:
+        headers = {
+            "Authorization": f"Bearer {GENIUS_TOKEN}",
+            "User-Agent": "Mozilla/5.0 (compatible; SpotifyPersonalizer/1.0)"
+        }
+        query = f"{title} {artist}"
+        search_url = "https://api.genius.com/search"
+        response = requests.get(search_url, params={"q": query}, headers=headers)
+        response.raise_for_status()
+        hits = response.json()["response"]["hits"]
+        if not hits:
             return None
-        lyrics = song.lyrics
-        lyrics = re.sub(r'\[.*?\]', '', lyrics)
-        lyrics = re.sub(r'\d+\s+Contributors?.*', '', lyrics)
-        lyrics = re.sub(r'Embed', '', lyrics)
-        return lyrics.strip()
+        song_path = hits[0]["result"]["path"]
+        lyrics_url = f"https://genius.com{song_path}"
+        page = requests.get(lyrics_url, headers=headers)
+        if page.status_code != 200:
+            return None
+        text = re.sub(r"<.*?>", "", page.text)
+        return text.strip()
     except Exception as e:
         print(f"Error fetching lyrics: {e}")
         return None
