@@ -82,11 +82,11 @@ def get_song_lyrics(title, artist):
             return None
         song_url = hits[0]["result"]["url"]
         print("Genius URL:", song_url)
-        lyrics_page = requests.get(song_url, timeout=10)
+        lyrics_page = requests.get("https://api.allorigins.win/get?url=" + requests.utils.quote(song_url), timeout=10)
         if lyrics_page.status_code != 200:
             print("Lyrics page fetch failed for:", song_url)
             return None
-        soup = BeautifulSoup(lyrics_page.text, "html.parser")
+        soup = BeautifulSoup(lyrics_page.json()["contents"], "html.parser")
         lyrics = "\n".join(
             elem.get_text(separator="\n")
             for elem in soup.find_all("div", attrs={"data-lyrics-container": "true"})
