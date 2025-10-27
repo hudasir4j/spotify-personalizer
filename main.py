@@ -74,15 +74,20 @@ def get_song_lyrics(title, artist):
         data = response.json()
         hits = data.get("response", {}).get("hits", [])
         if not hits:
+            print("No Genius hits for:", title, artist)
             return None
         song_url = hits[0]["result"]["url"]
         lyrics_page = requests.get(song_url, timeout=10)
+        if lyrics_page.status_code != 200:
+            print("Lyrics page fetch failed for:", song_url)
+            return None
         soup = BeautifulSoup(lyrics_page.text, "html.parser")
         lyrics = "\n".join(
             elem.get_text(separator="\n")
             for elem in soup.find_all("div", attrs={"data-lyrics-container": "true"})
         )
         if not lyrics.strip():
+            print("No lyrics found on page for:", song_url)
             return None
         lyrics = re.sub(r'\[.*?\]', '', lyrics)
         lyrics = re.sub(r'\d+\s+Contributors?.*', '', lyrics)
