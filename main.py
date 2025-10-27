@@ -76,18 +76,23 @@ def get_song_lyrics(track_id, user_access_token):
         "app-platform": "WebPlayer",
         "authorization": f"Bearer {user_access_token}"
     }
+    print(f"Fetching lyrics for track {track_id} with token length {len(user_access_token)}")
     resp = requests.get(url, headers=headers, timeout=10)
+    print(f"Lyrics fetch response code: {resp.status_code}")
+    
     if resp.status_code != 200:
-        print(f"Lyrics fetch failed for track {track_id}: {resp.status_code}")
+        print("Lyrics fetch failed response text:", resp.text)
         return None
-    data = resp.json()
     try:
+        data = resp.json()
         lines = data["lyrics"]["lines"]
         lyric_text = "\n".join([line.get("words", "") for line in lines])
         return lyric_text
     except Exception as e:
-        print("No color-lyrics available:", e)
+        print("Error parsing lyrics JSON:", e)
+        print("Response content:", resp.text)
         return None
+
 
 
 def analyze_lyrics(lyrics):
@@ -145,6 +150,7 @@ def callback(request: Request):
 def process_songs(code: str):
     try:
         token = sp_oauth.get_access_token(code)
+        print(f"Obtained Spotify token: {token}")
         sp = Spotify(auth=token["access_token"])
         top_tracks = sp.current_user_top_tracks(limit=10)["items"]
         track_data = []
