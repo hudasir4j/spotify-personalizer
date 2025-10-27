@@ -17,7 +17,6 @@ from nltk.corpus import stopwords
 import requests
 from bs4 import BeautifulSoup
 
-# NLTK
 for resource in ["stopwords", "punkt", "punkt_tab"]:
     try:
         nltk.data.find(resource)
@@ -27,6 +26,7 @@ for resource in ["stopwords", "punkt", "punkt_tab"]:
 if os.environ.get("PYTHON_ENV") == "local":
     load_dotenv(".env.local")
 
+BROWSERLESS_API_KEY = os.getenv("BROWSERLESS_API_KEY")
 CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID")
 CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
@@ -64,11 +64,17 @@ def clean_song_title(title):
     title = re.sub(r'-.*', '', title)
     return title.strip()
 
-# Lyrics via proxy + scraping
+def fetch_html_browserless(url):
+    endpoint = f'https://chrome.browserless.io/content?token={BROWSERLESS_API_KEY}'
+    resp = requests.post(endpoint, json={"url": url}, timeout=30)
+    if resp.status_code == 200:
+        return resp.text
+    print(f"Browserless fail: {resp.status_code}, {resp.text}")
+    return None
+
 def get_song_lyrics(title, artist):
     try:
         clean_title = clean_song_title(title)
-        # use only the main artist (no extra features or splits)
         main_artist = artist.split(",")[0].split("&")[0]
         query = f"{clean_title} {main_artist}"
         print("Searching Genius for:", query)
@@ -82,17 +88,16 @@ def get_song_lyrics(title, artist):
             return None
         song_url = hits[0]["result"]["url"]
         print("Genius URL:", song_url)
-        lyrics_page = requests.get("https://api.allorigins.win/get?url=" + requests.utils.quote(song_url), timeout=10)
-        if lyrics_page.status_code != 200:
+        html = fetch_html_browserless(song_url)
+        if not html:
             print("Lyrics page fetch failed for:", song_url)
             return None
-        soup = BeautifulSoup(lyrics_page.json()["contents"], "html.parser")
+        soup = BeautifulSoup(html, "html.parser")
         lyrics = "\n".join(
             elem.get_text(separator="\n")
             for elem in soup.find_all("div", attrs={"data-lyrics-container": "true"})
         )
         if not lyrics.strip():
-            # fallback - old markup style
             lyrics = "\n".join(
                 elem.get_text(separator="\n")
                 for elem in soup.find_all("div", class_="Lyrics__Container")
@@ -142,7 +147,6 @@ def process_track(info):
     line, themes = analyze_lyrics(lyrics)
     return {"song": title, "artist": artist, "line": line, "theme": themes[0], "genres": genres[:3]}
 
-# ROUTES
 @app.get("/login")
 def login():
     return RedirectResponse(sp_oauth.get_authorize_url())
