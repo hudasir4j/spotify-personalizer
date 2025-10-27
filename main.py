@@ -14,8 +14,10 @@ from collections import Counter
 import nltk
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
-from lyricsgenius import Genius
+import requests
+from bs4 import BeautifulSoup
 
+# NLTK
 for resource in ["stopwords", "punkt", "punkt_tab"]:
     try:
         nltk.data.find(resource)
@@ -31,9 +33,6 @@ REDIRECT_URI = os.getenv("REDIRECT_URI")
 FRONTEND_URL = os.getenv("FRONTEND_URL")
 GENIUS_TOKEN = os.getenv("GENIUS_TOKEN")
 HF_API_TOKEN = os.getenv("HF_API_TOKEN")
-
-genius = Genius(GENIUS_TOKEN, timeout=15, retries=3, sleep_time=0.3, remove_section_headers=True)
-genius._session.headers["User-Agent"] = "Mozilla/5.0 (compatible; SpotifyPersonalizer/1.0)"
 
 sp_oauth = SpotifyOAuth(
     client_id=CLIENT_ID,
@@ -65,30 +64,32 @@ def clean_song_title(title):
     title = re.sub(r'-.*', '', title)
     return title.strip()
 
-import requests
-
+# Lyrics via proxy + scraping
 def get_song_lyrics(title, artist):
     try:
-        headers = {
-            "Authorization": f"Bearer {GENIUS_TOKEN}",
-            "User-Agent": "Mozilla/5.0 (compatible; SpotifyPersonalizer/1.0)"
-        }
         query = f"{title} {artist}"
-        search_url = "https://api.genius.com/search"
-        response = requests.get(search_url, params={"q": query}, headers=headers)
+        proxy_url = f"https://genius-proxy-sigma.vercel.app/api/genius-proxy?q={requests.utils.quote(query)}"
+        response = requests.get(proxy_url, timeout=10)
         response.raise_for_status()
-        hits = response.json()["response"]["hits"]
+        data = response.json()
+        hits = data.get("response", {}).get("hits", [])
         if not hits:
             return None
-        song_path = hits[0]["result"]["path"]
-        lyrics_url = f"https://genius.com{song_path}"
-        page = requests.get(lyrics_url, headers=headers)
-        if page.status_code != 200:
+        song_url = hits[0]["result"]["url"]
+        lyrics_page = requests.get(song_url, timeout=10)
+        soup = BeautifulSoup(lyrics_page.text, "html.parser")
+        lyrics = "\n".join(
+            elem.get_text(separator="\n")
+            for elem in soup.find_all("div", attrs={"data-lyrics-container": "true"})
+        )
+        if not lyrics.strip():
             return None
-        text = re.sub(r"<.*?>", "", page.text)
-        return text.strip()
+        lyrics = re.sub(r'\[.*?\]', '', lyrics)
+        lyrics = re.sub(r'\d+\s+Contributors?.*', '', lyrics)
+        lyrics = re.sub(r'Embed', '', lyrics)
+        return lyrics.strip()
     except Exception as e:
-        print(f"Error fetching lyrics: {e}")
+        print(f"Error via proxy or scraping: {e}")
         return None
 
 def analyze_lyrics(lyrics):
@@ -101,12 +102,12 @@ def analyze_lyrics(lyrics):
 
 def map_to_aesthetic_theme(theme):
     mapping = {
-        "love": ["hopeless romantic era", "falling in love"],
+        "love": ["hopeless romantic", "crushing", "yearning"],
         "loss": ["moving on playlist"],
-        "hope": ["new chapter unlocked"],
-        "joy": ["main character moment"],
-        "nostalgia": ["missing what used to be"],
-        "heartbreak": ["healing journey"]
+        "hope": ["romanticizing life"],
+        "joy": ["main character"],
+        "nostalgia": ["missing what used to be", "unc", "reminiscing"],
+        "heartbreak": ["it's ok i'm ok", "thugging it out",]
     }
     import random
     return random.choice(mapping.get(theme, ["feeling everything"]))
@@ -125,6 +126,7 @@ def process_track(info):
     line, themes = analyze_lyrics(lyrics)
     return {"song": title, "artist": artist, "line": line, "theme": themes[0], "genres": genres[:3]}
 
+# ROUTES
 @app.get("/login")
 def login():
     return RedirectResponse(sp_oauth.get_authorize_url())
