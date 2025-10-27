@@ -67,16 +67,21 @@ def clean_song_title(title):
 # Lyrics via proxy + scraping
 def get_song_lyrics(title, artist):
     try:
-        query = f"{title} {artist}"
+        clean_title = clean_song_title(title)
+        # use only the main artist (no extra features or splits)
+        main_artist = artist.split(",")[0].split("&")[0]
+        query = f"{clean_title} {main_artist}"
+        print("Searching Genius for:", query)
         proxy_url = f"https://genius-proxy-sigma.vercel.app/api/genius-proxy?q={requests.utils.quote(query)}"
         response = requests.get(proxy_url, timeout=10)
         response.raise_for_status()
         data = response.json()
         hits = data.get("response", {}).get("hits", [])
         if not hits:
-            print("No Genius hits for:", title, artist)
+            print("No Genius hits for:", clean_title, main_artist)
             return None
         song_url = hits[0]["result"]["url"]
+        print("Genius URL:", song_url)
         lyrics_page = requests.get(song_url, timeout=10)
         if lyrics_page.status_code != 200:
             print("Lyrics page fetch failed for:", song_url)
@@ -86,6 +91,12 @@ def get_song_lyrics(title, artist):
             elem.get_text(separator="\n")
             for elem in soup.find_all("div", attrs={"data-lyrics-container": "true"})
         )
+        if not lyrics.strip():
+            # fallback - old markup style
+            lyrics = "\n".join(
+                elem.get_text(separator="\n")
+                for elem in soup.find_all("div", class_="Lyrics__Container")
+            )
         if not lyrics.strip():
             print("No lyrics found on page for:", song_url)
             return None
