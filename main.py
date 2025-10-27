@@ -65,7 +65,7 @@ def clean_song_title(title):
     return title.strip()
 
 def fetch_html_browserless(url):
-    endpoint = f'https://chrome.browserless.io/content?token={BROWSERLESS_API_KEY}'
+    endpoint = f'https://production-sfo.browserless.io/content?token={BROWSERLESS_API_KEY}'
     resp = requests.post(endpoint, json={"url": url}, timeout=30)
     if resp.status_code == 200:
         return resp.text
