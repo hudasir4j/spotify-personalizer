@@ -15,7 +15,7 @@ import nltk
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 import requests
-from bs4 import BeautifulSoup
+
 
 for resource in ["stopwords", "punkt", "punkt_tab"]:
     try:
@@ -23,16 +23,17 @@ for resource in ["stopwords", "punkt", "punkt_tab"]:
     except LookupError:
         nltk.download(resource)
 
+
 if os.environ.get("PYTHON_ENV") == "local":
     load_dotenv(".env.local")
 
-BROWSERLESS_API_KEY = os.getenv("BROWSERLESS_API_KEY")
+
 CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID")
 CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 FRONTEND_URL = os.getenv("FRONTEND_URL")
-GENIUS_TOKEN = os.getenv("GENIUS_TOKEN")
 HF_API_TOKEN = os.getenv("HF_API_TOKEN")
+
 
 sp_oauth = SpotifyOAuth(
     client_id=CLIENT_ID,
@@ -40,6 +41,7 @@ sp_oauth = SpotifyOAuth(
     redirect_uri=REDIRECT_URI,
     scope="user-top-read user-read-recently-played"
 )
+
 
 app = FastAPI()
 app.add_middleware(
@@ -50,7 +52,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 session_data = {}
+
 
 def clean_old_sessions():
     cutoff = datetime.now() - timedelta(hours=2)
@@ -58,60 +62,33 @@ def clean_old_sessions():
     for key in stale:
         del session_data[key]
 
+
 def clean_song_title(title):
     title = re.sub(r'\(.*?\)', '', title)
     title = re.sub(r'\[.*?\]', '', title)
     title = re.sub(r'-.*', '', title)
     return title.strip()
 
-def fetch_html_browserless(url):
-    endpoint = f'https://production-sfo.browserless.io/content?token={BROWSERLESS_API_KEY}'
-    resp = requests.post(endpoint, json={"url": url}, timeout=30)
-    if resp.status_code == 200:
-        return resp.text
-    print(f"Browserless fail: {resp.status_code}, {resp.text}")
-    return None
 
-def get_song_lyrics(title, artist):
-    try:
-        clean_title = clean_song_title(title)
-        main_artist = artist.split(",")[0].split("&")[0]
-        query = f"{clean_title} {main_artist}"
-        print("Searching Genius for:", query)
-        proxy_url = f"https://genius-proxy-sigma.vercel.app/api/genius-proxy?q={requests.utils.quote(query)}"
-        response = requests.get(proxy_url, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        hits = data.get("response", {}).get("hits", [])
-        if not hits:
-            print("No Genius hits for:", clean_title, main_artist)
-            return None
-        song_url = hits[0]["result"]["url"]
-        print("Genius URL:", song_url)
-        html = fetch_html_browserless(song_url)
-        if not html:
-            print("Lyrics page fetch failed for:", song_url)
-            return None
-        soup = BeautifulSoup(html, "html.parser")
-        lyrics = "\n".join(
-            elem.get_text(separator="\n")
-            for elem in soup.find_all("div", attrs={"data-lyrics-container": "true"})
-        )
-        if not lyrics.strip():
-            lyrics = "\n".join(
-                elem.get_text(separator="\n")
-                for elem in soup.find_all("div", class_="Lyrics__Container")
-            )
-        if not lyrics.strip():
-            print("No lyrics found on page for:", song_url)
-            return None
-        lyrics = re.sub(r'\[.*?\]', '', lyrics)
-        lyrics = re.sub(r'\d+\s+Contributors?.*', '', lyrics)
-        lyrics = re.sub(r'Embed', '', lyrics)
-        return lyrics.strip()
-    except Exception as e:
-        print(f"Error via proxy or scraping: {e}")
+def get_song_lyrics(track_id, user_access_token):
+    url = f"https://spclient.wg.spotify.com/color-lyrics/v2/track/{track_id}?format=json&vocalRemoval=false"
+    headers = {
+        "app-platform": "WebPlayer",
+        "authorization": f"Bearer {user_access_token}"
+    }
+    resp = requests.get(url, headers=headers, timeout=10)
+    if resp.status_code != 200:
+        print(f"Lyrics fetch failed for track {track_id}: {resp.status_code}")
         return None
+    data = resp.json()
+    try:
+        lines = data["lyrics"]["lines"]
+        lyric_text = "\n".join([line.get("words", "") for line in lines])
+        return lyric_text
+    except Exception as e:
+        print("No color-lyrics available:", e)
+        return None
+
 
 def analyze_lyrics(lyrics):
     lines = [l.strip() for l in lyrics.split('\n') if len(l.strip()) > 15]
@@ -121,6 +98,7 @@ def analyze_lyrics(lyrics):
     import random
     return random.choice(lines), [random.choice(emotion_themes)]
 
+
 def map_to_aesthetic_theme(theme):
     mapping = {
         "love": ["hopeless romantic", "crushing", "yearning"],
@@ -128,10 +106,11 @@ def map_to_aesthetic_theme(theme):
         "hope": ["romanticizing life"],
         "joy": ["main character"],
         "nostalgia": ["missing what used to be", "unc", "reminiscing"],
-        "heartbreak": ["it's ok i'm ok", "thugging it out",]
+        "heartbreak": ["it's ok i'm ok", "thugging it out"]
     }
     import random
     return random.choice(mapping.get(theme, ["feeling everything"]))
+
 
 def get_top_words(highlights):
     text = " ".join([h["line"] for h in highlights])
@@ -139,17 +118,20 @@ def get_top_words(highlights):
     tokens = [t for t in tokens if t.isalpha() and t not in stopwords.words("english")]
     return Counter(tokens).most_common(10)
 
+
 def process_track(info):
-    title, artist, genres = info
-    lyrics = get_song_lyrics(title, artist)
+    title, artist, track_id, genres, user_access_token = info
+    lyrics = get_song_lyrics(track_id, user_access_token)
     if not lyrics:
         return None
     line, themes = analyze_lyrics(lyrics)
     return {"song": title, "artist": artist, "line": line, "theme": themes[0], "genres": genres[:3]}
 
+
 @app.get("/login")
 def login():
     return RedirectResponse(sp_oauth.get_authorize_url())
+
 
 @app.get("/callback")
 def callback(request: Request):
@@ -157,6 +139,7 @@ def callback(request: Request):
     if not code:
         return {"error": "Missing code"}
     return RedirectResponse(f"{FRONTEND_URL}/loading?code={code}")
+
 
 @app.get("/api/process")
 def process_songs(code: str):
@@ -170,10 +153,11 @@ def process_songs(code: str):
             title = t["name"]
             artist = t["artists"][0]["name"]
             artist_id = t["artists"][0]["id"]
+            track_id = t["id"]
             if f"{title.lower()}_{artist.lower()}" in seen:
                 continue
             genres = sp.artist(artist_id).get("genres", [])
-            track_data.append((title, artist, genres))
+            track_data.append((title, artist, track_id, genres, token["access_token"]))
             seen.add(f"{title.lower()}_{artist.lower()}")
         start = time.time()
         with ThreadPoolExecutor(max_workers=5) as ex:
@@ -197,12 +181,14 @@ def process_songs(code: str):
     except Exception as e:
         return {"error": str(e)}
 
+
 @app.get("/api/results")
 def get_results(session_id: str):
     if session_id not in session_data:
         return JSONResponse(status_code=404, content={"error": "No data available"})
     data = session_data[session_id]["data"]
     return {**data, "total_songs": len(data["highlights"])}
+
 
 @app.get("/")
 def root():
