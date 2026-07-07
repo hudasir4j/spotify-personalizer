@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from "react";
+import EnvelopeReveal from "../components/EnvelopeReveal";
+import ResultsContent from "../components/ResultsContent";
+import { getVibeEnvelopeTeaser } from "../utils/vibeCopy";
 import "./Results.scss";
 
 function Results() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
+  const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -26,28 +30,56 @@ function Results() {
     fetchResults();
   }, []);
 
-  if (error)
+  if (error) {
     return (
-      <div>
-        <h2>Error</h2>
+      <div className="results-status">
+        <h2>something went wrong</h2>
         <p>{error}</p>
-        <a href="/">Go Back</a>
+        <a href="/" className="status-btn">
+          go back
+        </a>
       </div>
     );
+  }
 
-  if (!data) return <h2>Loading...</h2>;
+  if (!data) {
+    return (
+      <div className="results-status">
+        <h2>loading your breakdown...</h2>
+      </div>
+    );
+  }
 
-  return (
-    <div className="results">
-      <h1>Your Emotional Breakdown</h1>
-      <p>Analyzed {data.total_songs} tracks</p>
-      {data.highlights.map((song, i) => (
-        <div key={i}>
-          <strong>{song.song}</strong> by {song.artist}: “{song.line}”
-        </div>
-      ))}
-    </div>
-  );
+  if (!data.highlights?.length) {
+    return (
+      <div className="results-status">
+        <h2>your emotional breakdown</h2>
+        <p>no lyrics found for your top tracks</p>
+        <p>
+          Make sure GENIUS_TOKEN is set in your backend .env.local for fallback
+          lyrics, then try again.
+        </p>
+        <a href="/" className="status-btn">
+          ← analyze again
+        </a>
+      </div>
+    );
+  }
+
+  const topTheme = [...(data.themes || [])].sort((a, b) => b.count - a.count)[0];
+
+  if (!revealed) {
+    return (
+      <EnvelopeReveal
+        onReveal={() => setRevealed(true)}
+        teaser={
+          topTheme ? getVibeEnvelopeTeaser(topTheme.theme) : undefined
+        }
+      />
+    );
+  }
+
+  return <ResultsContent data={data} />;
 }
 
 export default Results;

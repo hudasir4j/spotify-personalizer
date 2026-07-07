@@ -1,0 +1,130 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap');
+
+.envelope-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(45deg, #45062c, #1e0213, #32021F);
+  padding: 48px 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.mail-greeting {
+  font-family: 'Instrument Serif', serif;
+  font-size: clamp(28px, 5vw, 42px);
+  color: #a8ff78;
+  margin: 0 0 48px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.envelope-stage {
+  perspective: 900px;
+  margin-bottom: 40px;
+}
+
+.envelope {
+  position: relative;
+  width: min(320px, 78vw);
+  height: 200px;
+  cursor: pointer;
+  outline: none;
+
+  &:focus-visible .envelope-pocket {
+    box-shadow: 0 0 0 3px rgba(168, 255, 120, 0.35);
+  }
+}
+
+.envelope-back {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(165deg, #5a1a45 0%, #32021f 100%);
+  border-radius: 4px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
+}
+
+.envelope-pocket {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 115px;
+  background: linear-gradient(180deg, #4a1538 0%, #2a0818 100%);
+  clip-path: polygon(0 35%, 50% 0, 100% 35%, 100% 100%, 0 100%);
+  border-radius: 0 0 4px 4px;
+  z-index: 3;
+}
+
+.envelope-flap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 105px;
+  background: linear-gradient(180deg, #6b2450 0%, #4a1538 100%);
+  clip-path: polygon(0 0, 50% 85%, 100% 0);
+  transform-origin: top center;
+  z-index: 4;
+  backface-visibility: hidden;
+}
+
+.letter-peek {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 28%;
+  height: 130px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(168, 255, 120, 0.2);
+  border-radius: 2px;
+  z-index: 2;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  .letter-line {
+    display: block;
+    height: 3px;
+    background: rgba(168, 255, 120, 0.2);
+    border-radius: 2px;
+    width: 85%;
+
+    &.short { width: 55%; }
+  }
+
+  em {
+    font-family: 'Sanchez', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: rgba(168, 255, 120, 0.7);
+    margin-top: auto;
+    text-transform: lowercase;
+  }
+}
+
+.envelope.is-open {
+  .envelope-flap { z-index: 1; }
+  .letter-peek { z-index: 5; }
+}
+
+.open-hint {
+  text-align: center;
+
+  p {
+    font-family: 'Sanchez', serif;
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.5);
+    margin: 8px 0 0;
+  }
+}
+
+.swipe-cue {
+  display: inline-block;
+  font-size: 22px;
+  color: #a8ff78;
+  opacity: 0.7;
+}

@@ -1,47 +1,41 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse, JSONResponse
+import os
+import hashlib
+import json
+import threading
+import time
+from collections import Counter
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta
+from pathlib import Path
+
+from dotenv import load_dotenv
+from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
-from dotenv import load_dotenv
-import os
-import re
-import time
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta
-import hashlib
-from collections import Counter
-import nltk
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
-import requests
-
-
-for resource in ["stopwords", "punkt", "punkt_tab"]:
-    try:
-        nltk.data.find(resource)
-    except LookupError:
-        nltk.download(resource)
-
 
 if os.environ.get("PYTHON_ENV") == "local":
     load_dotenv(".env.local")
 
+from services.analysis import assign_aesthetic_vibe, get_top_words, pick_iconic_line
+from services.lyrics import get_song_lyrics, init_genius
 
 CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID")
 CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 FRONTEND_URL = os.getenv("FRONTEND_URL")
-HF_API_TOKEN = os.getenv("HF_API_TOKEN")
+GENIUS_TOKEN = os.getenv("GENIUS_TOKEN")
 
+init_genius(GENIUS_TOKEN)
 
 sp_oauth = SpotifyOAuth(
     client_id=CLIENT_ID,
     client_secret=CLIENT_SECRET,
     redirect_uri=REDIRECT_URI,
-    scope="user-top-read user-read-recently-played"
+    scope="user-top-read user-read-recently-played",
+    cache_path=".spotify_token_cache",
 )
-
 
 app = FastAPI()
 app.add_middleware(
@@ -52,85 +46,180 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 session_data = {}
+session_lock = threading.Lock()
+_startup_locks = {}
+_startup_locks_guard = threading.Lock()
+VALID_TIME_RANGES = {"short_term", "medium_term", "long_term"}
+SESSION_DIR = Path(".cache/sessions")
+
+
+def _save_session(session_id):
+    with session_lock:
+        session = session_data.get(session_id)
+        if not session:
+            return
+        payload = {
+            **session,
+            "timestamp": session["timestamp"].isoformat(),
+        }
+    SESSION_DIR.mkdir(parents=True, exist_ok=True)
+    (SESSION_DIR / f"{session_id}.json").write_text(
+        json.dumps(payload, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def _load_sessions():
+    if not SESSION_DIR.exists():
+        return
+    cutoff = datetime.now() - timedelta(hours=2)
+    for path in SESSION_DIR.glob("*.json"):
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            ts = datetime.fromisoformat(raw["timestamp"])
+            if ts < cutoff:
+                path.unlink(missing_ok=True)
+                continue
+            raw["timestamp"] = ts
+            session_data[path.stem] = raw
+        except (json.JSONDecodeError, OSError, KeyError, ValueError):
+            path.unlink(missing_ok=True)
+
+
+_load_sessions()
+
+
+def _get_startup_lock(session_id):
+    with _startup_locks_guard:
+        if session_id not in _startup_locks:
+            _startup_locks[session_id] = threading.Lock()
+        return _startup_locks[session_id]
+
+
+def _session_response(session_id, session):
+    return {
+        "status": session["status"],
+        "session_id": session_id,
+        "total": session["progress"]["total"],
+        "requested_limit": session.get("requested_limit"),
+        "duplicates_skipped": session.get("duplicates_skipped", 0),
+        "time_range": session.get("time_range"),
+        "resumed": True,
+    }
 
 
 def clean_old_sessions():
     cutoff = datetime.now() - timedelta(hours=2)
-    stale = [s for s, v in session_data.items() if v["timestamp"] < cutoff]
-    for key in stale:
-        del session_data[key]
+    with session_lock:
+        stale = [s for s, v in session_data.items() if v["timestamp"] < cutoff]
+        for key in stale:
+            del session_data[key]
+            path = SESSION_DIR / f"{key}.json"
+            if path.exists():
+                path.unlink()
 
 
-def clean_song_title(title):
-    title = re.sub(r'\(.*?\)', '', title)
-    title = re.sub(r'\[.*?\]', '', title)
-    title = re.sub(r'-.*', '', title)
-    return title.strip()
-
-
-def get_song_lyrics(track_id, user_access_token):
-    url = f"https://spclient.wg.spotify.com/color-lyrics/v2/track/{track_id}?format=json&vocalRemoval=false"
-    headers = {
-        "app-platform": "WebPlayer",
-        "authorization": f"Bearer {user_access_token}"
+def _update_aggregates(highlights):
+    themes = [h["theme"] for h in highlights]
+    counts = Counter(themes)
+    return {
+        "highlights": highlights,
+        "themes": [{"theme": k, "count": v} for k, v in counts.items()],
+        "top_words": get_top_words(highlights) if highlights else [],
     }
-    print(f"Fetching lyrics for track {track_id} with token length {len(user_access_token)}")
-    resp = requests.get(url, headers=headers, timeout=10)
-    print(f"Lyrics fetch response code: {resp.status_code}")
-    
-    if resp.status_code != 200:
-        print("Lyrics fetch failed response text:", resp.text)
-        return None
+
+
+def _process_track(track, genre_cache):
+    title, artist, track_id, album, duration_ms, artist_id, access_token, album_art = track
     try:
-        data = resp.json()
-        lines = data["lyrics"]["lines"]
-        lyric_text = "\n".join([line.get("words", "") for line in lines])
-        return lyric_text
-    except Exception as e:
-        print("Error parsing lyrics JSON:", e)
-        print("Response content:", resp.text)
+        sp = None
+        try:
+            sp = Spotify(auth=access_token)
+        except Exception:
+            pass
+
+        if artist_id in genre_cache:
+            genres = genre_cache[artist_id]
+        elif sp:
+            try:
+                genres = sp.artist(artist_id).get("genres", [])
+            except Exception:
+                genres = []
+            genre_cache[artist_id] = genres
+        else:
+            genres = []
+            genre_cache[artist_id] = genres
+
+        lyrics = get_song_lyrics(title, artist, album, duration_ms, track_id)
+        if not lyrics:
+            return None
+
+        line, raw_theme = pick_iconic_line(lyrics)
+        if not line:
+            return None
+
+        audio = None
+        if sp:
+            try:
+                features = sp.audio_features([track_id])
+                if features and features[0]:
+                    audio = features[0]
+            except Exception:
+                audio = None
+
+        return {
+            "song": title,
+            "artist": artist,
+            "line": line,
+            "theme": assign_aesthetic_vibe(
+                title, artist, line, raw_theme, genres, lyrics, audio
+            ),
+            "genres": genres[:3],
+            "album_art": album_art,
+            "track_id": track_id,
+        }
+    except Exception as exc:
+        print(f"Failed to process {title} by {artist}: {exc}")
         return None
 
 
+def run_analysis(session_id, track_data):
+    highlights = []
+    genre_cache = {}
+    start = time.time()
 
-def analyze_lyrics(lyrics):
-    lines = [l.strip() for l in lyrics.split('\n') if len(l.strip()) > 15]
-    if not lines:
-        return "", []
-    emotion_themes = ["love", "loss", "hope", "joy", "nostalgia", "heartbreak"]
-    import random
-    return random.choice(lines), [random.choice(emotion_themes)]
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {
+            executor.submit(_process_track, track, genre_cache): track
+            for track in track_data
+        }
+        for future in as_completed(futures):
+            try:
+                result = future.result()
+            except Exception as exc:
+                print(f"Track worker error: {exc}")
+                result = None
+            with session_lock:
+                session = session_data.get(session_id)
+                if not session:
+                    return
+                session["progress"]["done"] += 1
+                if result:
+                    highlights.append(result)
+                    session["data"] = _update_aggregates(highlights)
+            _save_session(session_id)
 
+    with session_lock:
+        session = session_data.get(session_id)
+        if session:
+            session["status"] = "complete"
+            session["timestamp"] = datetime.now()
+    _save_session(session_id)
 
-def map_to_aesthetic_theme(theme):
-    mapping = {
-        "love": ["hopeless romantic", "crushing", "yearning"],
-        "loss": ["moving on playlist"],
-        "hope": ["romanticizing life"],
-        "joy": ["main character"],
-        "nostalgia": ["missing what used to be", "unc", "reminiscing"],
-        "heartbreak": ["it's ok i'm ok", "thugging it out"]
-    }
-    import random
-    return random.choice(mapping.get(theme, ["feeling everything"]))
-
-
-def get_top_words(highlights):
-    text = " ".join([h["line"] for h in highlights])
-    tokens = word_tokenize(text.lower())
-    tokens = [t for t in tokens if t.isalpha() and t not in stopwords.words("english")]
-    return Counter(tokens).most_common(10)
-
-
-def process_track(info):
-    title, artist, track_id, genres, user_access_token = info
-    lyrics = get_song_lyrics(track_id, user_access_token)
-    if not lyrics:
-        return None
-    line, themes = analyze_lyrics(lyrics)
-    return {"song": title, "artist": artist, "line": line, "theme": themes[0], "genres": genres[:3]}
+    print(
+        f"Session {session_id}: processed {len(highlights)}/{len(track_data)} "
+        f"tracks in {round(time.time() - start, 2)}s"
+    )
 
 
 @app.get("/login")
@@ -147,53 +236,124 @@ def callback(request: Request):
 
 
 @app.get("/api/process")
-def process_songs(code: str):
-    try:
-        token = sp_oauth.get_access_token(code)
-        print(f"Obtained Spotify token: {token}")
-        sp = Spotify(auth=token["access_token"])
-        top_tracks = sp.current_user_top_tracks(limit=10)["items"]
-        track_data = []
-        seen = set()
-        for t in top_tracks:
-            title = t["name"]
-            artist = t["artists"][0]["name"]
-            artist_id = t["artists"][0]["id"]
-            track_id = t["id"]
-            if f"{title.lower()}_{artist.lower()}" in seen:
-                continue
-            genres = sp.artist(artist_id).get("genres", [])
-            track_data.append((title, artist, track_id, genres, token["access_token"]))
-            seen.add(f"{title.lower()}_{artist.lower()}")
-        start = time.time()
-        with ThreadPoolExecutor(max_workers=5) as ex:
-            results = list(ex.map(process_track, track_data))
-        highlights = [r for r in results if r]
-        themes = [map_to_aesthetic_theme(h["theme"]) for h in highlights]
-        counts = Counter(themes)
-        top_words = get_top_words(highlights)
-        session_id = hashlib.md5(code.encode()).hexdigest()
-        session_data[session_id] = {
-            "data": {
-                "highlights": highlights,
-                "themes": [{"theme": k, "count": v} for k, v in counts.items()],
-                "top_words": top_words
-            },
-            "timestamp": datetime.now()
-        }
-        clean_old_sessions()
-        print(f"Processed {len(highlights)} tracks in {round(time.time() - start, 2)}s")
-        return {"status": "complete", "session_id": session_id}
-    except Exception as e:
-        return {"error": str(e)}
+def process_songs(
+    code: str,
+    background_tasks: BackgroundTasks,
+    time_range: str = "medium_term",
+    limit: int = 50,
+):
+    if time_range not in VALID_TIME_RANGES:
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"time_range must be one of {sorted(VALID_TIME_RANGES)}"},
+        )
+
+    limit = max(1, min(50, limit))
+    session_id = hashlib.md5(f"{code}:{time_range}:{limit}".encode()).hexdigest()
+
+    with session_lock:
+        existing = session_data.get(session_id)
+        if existing:
+            return _session_response(session_id, existing)
+
+    startup_lock = _get_startup_lock(session_id)
+    with startup_lock:
+        with session_lock:
+            existing = session_data.get(session_id)
+            if existing:
+                return _session_response(session_id, existing)
+
+        try:
+            token = sp_oauth.get_access_token(code)
+            sp = Spotify(auth=token["access_token"])
+            top_tracks = sp.current_user_top_tracks(
+                limit=limit,
+                time_range=time_range,
+            )["items"]
+
+            track_data = []
+            seen_ids = set()
+            for track in top_tracks:
+                track_id = track["id"]
+                if track_id in seen_ids:
+                    continue
+                seen_ids.add(track_id)
+                title = track["name"]
+                artist = track["artists"][0]["name"]
+                artist_id = track["artists"][0]["id"]
+                album = track["album"]["name"]
+                duration_ms = track.get("duration_ms", 0)
+                images = track.get("album", {}).get("images") or []
+                album_art = images[0]["url"] if images else None
+                track_data.append(
+                    (
+                        title,
+                        artist,
+                        track_id,
+                        album,
+                        duration_ms,
+                        artist_id,
+                        token["access_token"],
+                        album_art,
+                    )
+                )
+
+            total = len(track_data)
+            duplicates_skipped = len(top_tracks) - total
+
+            with session_lock:
+                session_data[session_id] = {
+                    "status": "processing",
+                    "progress": {"done": 0, "total": total},
+                    "data": {"highlights": [], "themes": [], "top_words": []},
+                    "time_range": time_range,
+                    "requested_limit": limit,
+                    "duplicates_skipped": duplicates_skipped,
+                    "timestamp": datetime.now(),
+                }
+
+            clean_old_sessions()
+            _save_session(session_id)
+            background_tasks.add_task(run_analysis, session_id, track_data)
+
+            return {
+                "status": "processing",
+                "session_id": session_id,
+                "total": total,
+                "requested_limit": limit,
+                "duplicates_skipped": duplicates_skipped,
+                "time_range": time_range,
+            }
+        except Exception as exc:
+            error_text = str(exc)
+            if "invalid_grant" in error_text:
+                with session_lock:
+                    existing = session_data.get(session_id)
+                    if existing:
+                        return _session_response(session_id, existing)
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "error": "Login expired — please go back and log in again.",
+                    },
+                )
+            return JSONResponse(status_code=500, content={"error": error_text})
 
 
 @app.get("/api/results")
 def get_results(session_id: str):
-    if session_id not in session_data:
-        return JSONResponse(status_code=404, content={"error": "No data available"})
-    data = session_data[session_id]["data"]
-    return {**data, "total_songs": len(data["highlights"])}
+    with session_lock:
+        session = session_data.get(session_id)
+        if not session:
+            return JSONResponse(status_code=404, content={"error": "No data available"})
+        payload = {
+            **session["data"],
+            "status": session["status"],
+            "progress": session["progress"],
+            "time_range": session.get("time_range"),
+            "total_songs": len(session["data"]["highlights"]),
+        }
+    return payload
 
 
 @app.get("/")

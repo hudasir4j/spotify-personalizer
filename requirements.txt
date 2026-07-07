@@ -4,3 +4,5 @@ spotipy==2.25.1
 lyricsgenius==3.3.1
 nltk==3.9.1
 requests==2.32.5
+python-dotenv==1.1.0
+sumy==0.11.0

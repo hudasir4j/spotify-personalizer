@@ -25,15 +25,9 @@
     transform: translateY(100vh) translateX(0) rotate(0deg);
     opacity: 0;
   }
-  10% {
-    opacity: 0.12;
-  }
-  50% {
-    transform: translateY(30vh) translateX(30px) rotate(5deg);
-  }
-  90% {
-    opacity: 0.12;
-  }
+  10% { opacity: 0.12; }
+  50% { transform: translateY(30vh) translateX(30px) rotate(5deg); }
+  90% { opacity: 0.12; }
 }
 
 .content {
@@ -44,11 +38,12 @@
 }
 
 .results-header {
-  margin-bottom: 60px;
+  margin-bottom: 48px;
+  text-align: center;
 
   h1 {
     font-family: 'AdverCase', sans-serif;
-    font-size: 56px;
+    font-size: clamp(36px, 7vw, 56px);
     color: #a8ff78;
     margin-bottom: 8px;
     font-weight: 400;
@@ -59,6 +54,50 @@
     font-size: 18px;
     color: rgba(255, 255, 255, 0.6);
   }
+
+  .vibe-summary {
+    font-family: 'Sanchez', serif;
+    font-size: 17px;
+    font-style: italic;
+    color: #a8ff78;
+    margin-top: 14px;
+    max-width: 420px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.4;
+  }
+}
+
+.filter-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(168, 255, 120, 0.1);
+  border: 1px solid rgba(168, 255, 120, 0.25);
+  padding: 12px 20px;
+  margin-bottom: 32px;
+  font-family: 'Sanchez', serif;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+
+  button {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 4px 12px;
+    cursor: pointer;
+    font-family: 'Sanchez', serif;
+    font-size: 13px;
+
+    &:hover { background: rgba(255, 255, 255, 0.1); }
+  }
+}
+
+.section-hint {
+  font-family: 'Sanchez', serif;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.4);
+  margin: -16px 0 20px;
 }
 
 h2 {
@@ -69,156 +108,419 @@ h2 {
   font-weight: 400;
 }
 
-.compact-section {
-  margin-bottom: 80px;
-}
+.compact-section,
+.songs-section { margin-bottom: 64px; }
 
-.lyrics-list {
+.songs-head {
   display: flex;
-  flex-direction: column;
+  align-items: baseline;
+  justify-content: space-between;
   gap: 16px;
-}
+  margin-bottom: 0;
 
-.lyric-row {
-  background: rgba(255, 255, 255, 0.05);
-  border-left: 3px solid #a8ff78;
-  padding: 20px 24px;
-  display: grid;
-  grid-template-columns: 200px 1fr auto;
-  gap: 24px;
-  align-items: center;
-  transition: background 0.2s ease;
+  h2 { margin-bottom: 0; }
 
-  &:hover {
-    background: rgba(255, 255, 255, 0.08);
-  }
-}
-
-.song-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-
-  .song-title {
+  .songs-count {
     font-family: 'Sanchez', serif;
-    color: white;
-    font-size: 16px;
-    font-weight: 600;
-  }
-
-  .artist-name {
-    font-family: 'Sanchez', serif;
-    color: rgba(255, 255, 255, 0.5);
     font-size: 14px;
+    color: rgba(255, 255, 255, 0.45);
   }
 }
 
-.lyric-text {
-  font-family: 'Sanchez', serif;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 15px;
-  line-height: 1.5;
-  font-style: italic;
-}
-
-.theme-label {
-  font-family: 'Sanchez', serif;
-  color: #a8ff78;
-  font-size: 13px;
-  text-transform: lowercase;
-  white-space: nowrap;
-}
-
-.themes-section {
-  margin-bottom: 80px;
-}
-
-.themes-container {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.theme-bar {
-  .theme-info {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 8px;
-    font-family: 'Sanchez', serif;
-
-    .theme-name {
-      color: white;
-      font-size: 16px;
-    }
-
-    .theme-count {
-      color: rgba(255, 255, 255, 0.5);
-      font-size: 16px;
-    }
-  }
-
-  .bar-container {
-    width: 100%;
-    height: 8px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-    overflow: hidden;
-  }
-
-  .bar-fill {
-    height: 100%;
-    background: #a8ff78;
-    transition: width 0.5s ease;
-  }
-}
-
-.words-section {
-  margin-bottom: 60px;
-}
-
-.words-grid {
+.song-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 12px;
 }
 
-.word-item {
-  background: rgba(255, 255, 255, 0.05);
-  padding: 16px;
+.song-tile {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-family: 'Sanchez', serif;
+  gap: 12px;
+  align-items: flex-start;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 3px solid #a8ff78;
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
 
-  .word {
-    color: white;
-    font-size: 15px;
+  &:hover {
+    background: rgba(255, 255, 255, 0.09);
   }
 
-  .count {
-    color: #a8ff78;
-    font-size: 15px;
+  &.selected {
+    background: rgba(168, 255, 120, 0.1);
+    border-color: rgba(168, 255, 120, 0.35);
+  }
+
+  .tile-art {
+    width: 52px;
+    height: 52px;
+    object-fit: cover;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  .tile-body {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .tile-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .tile-title {
+    font-family: 'Sanchez', serif;
+    font-size: 14px;
     font-weight: 600;
+    color: white;
+    line-height: 1.25;
+  }
+
+  .tile-vibe {
+    font-family: 'Sanchez', serif;
+    font-size: 10px;
+    color: #a8ff78;
+    text-transform: lowercase;
+    white-space: nowrap;
+    flex-shrink: 0;
+    opacity: 0.9;
+  }
+
+  .tile-artist {
+    font-family: 'Sanchez', serif;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.45);
+  }
+
+  .tile-line {
+    font-family: 'Sanchez', serif;
+    font-size: 13px;
+    line-height: 1.4;
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.75);
+    margin: 4px 0 0;
+  }
+}
+
+.load-more {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+  padding: 14px;
+  font-family: 'Sanchez', serif;
+  font-size: 15px;
+  color: #a8ff78;
+  background: rgba(168, 255, 120, 0.08);
+  border: 1px dashed rgba(168, 255, 120, 0.35);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+
+  &:hover {
+    background: rgba(168, 255, 120, 0.14);
+  }
+}
+
+// --- vibe donut ---
+.vibe-donut-wrap {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 32px;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 28px 32px;
+}
+
+.donut-chart {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  margin: 0 auto;
+}
+
+.donut-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  text-align: center;
+  padding: 0 24px;
+
+  .donut-pct {
+    font-family: 'AdverCase', sans-serif;
+    font-size: 28px;
+    color: #a8ff78;
+    line-height: 1;
+  }
+
+  .donut-label {
+    font-family: 'Sanchez', serif;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.55);
+    margin-top: 6px;
+    text-transform: lowercase;
+    line-height: 1.2;
+  }
+}
+
+.donut-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: 'Sanchez', serif;
+  text-align: left;
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  &.active {
+    background: rgba(168, 255, 120, 0.12);
+
+    .legend-name { color: #a8ff78; }
+  }
+
+  .swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .legend-name {
+    flex: 1;
+    color: white;
+    font-size: 14px;
+    text-transform: lowercase;
+  }
+
+  .legend-meta {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.4);
+    white-space: nowrap;
+  }
+}
+
+.donut-footnote {
+  grid-column: 1 / -1;
+  font-family: 'Sanchez', serif;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+  text-align: center;
+  margin: 0;
+}
+
+// --- song detail modal ---
+.song-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(10, 4, 12, 0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.song-modal {
+  position: relative;
+  width: min(420px, 100%);
+  background: linear-gradient(145deg, #3a0a28, #1e0213);
+  border: 1px solid rgba(168, 255, 120, 0.2);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+
+  .modal-close {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    z-index: 2;
+    background: rgba(0, 0, 0, 0.35);
+    border: none;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover { background: rgba(0, 0, 0, 0.55); }
+  }
+
+  .modal-art {
+    width: 100%;
+    aspect-ratio: 1.4;
+    object-fit: cover;
+    display: block;
+  }
+
+  .modal-body {
+    padding: 24px;
+
+    .modal-vibe {
+      font-family: 'Sanchez', serif;
+      font-size: 12px;
+      text-transform: lowercase;
+      color: #a8ff78;
+      margin: 0 0 12px;
+      letter-spacing: 0.04em;
+    }
+
+    blockquote {
+      font-family: 'Sanchez', serif;
+      font-size: 18px;
+      line-height: 1.5;
+      font-style: italic;
+      color: rgba(255, 255, 255, 0.92);
+      margin: 0 0 16px;
+      border: none;
+      padding: 0;
+    }
+
+    h3 {
+      font-family: 'AdverCase', sans-serif;
+      font-size: 22px;
+      font-weight: 400;
+      color: white;
+      margin: 0 0 4px;
+    }
+
+    .modal-artist {
+      font-family: 'Sanchez', serif;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.5);
+      margin: 0 0 12px;
+    }
+
+    .modal-genres {
+      font-family: 'Sanchez', serif;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.4);
+      margin: 0;
+      text-transform: lowercase;
+    }
+  }
+}
+
+.themes-section { margin-bottom: 64px; }
+
+.words-section { margin-bottom: 48px; }
+
+.word-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: baseline;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+}
+
+.cloud-word {
+  background: transparent;
+  border: none;
+  color: white;
+  font-family: 'Sanchez', serif;
+  cursor: pointer;
+  padding: 4px 8px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  transition: color 0.2s, transform 0.2s;
+
+  .cloud-count {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.35);
+  }
+
+  &:hover {
+    color: #a8ff78;
+    transform: scale(1.05);
+  }
+
+  &.active {
+    color: #a8ff78;
+    text-decoration: underline;
+    text-underline-offset: 4px;
   }
 }
 
 .footer-nav {
   text-align: center;
   padding: 40px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+
+  .share-button {
+    font-family: 'Sanchez', serif;
+    background: #a8ff78;
+    color: #1a0e2e;
+    border: none;
+    padding: 14px 32px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover:not(:disabled) { opacity: 0.9; }
+    &:disabled { opacity: 0.6; cursor: wait; }
+  }
 
   .back-link {
     font-family: 'Sanchez', serif;
     color: rgba(255, 255, 255, 0.6);
     text-decoration: none;
     font-size: 16px;
-    transition: color 0.2s ease;
 
-    &:hover {
-      color: white;
-    }
+    &:hover { color: white; }
   }
 }
 
+.results-status,
 .loading-screen,
 .error-screen {
   min-height: 100vh;
@@ -226,20 +528,24 @@ h2 {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #2d1b4e 0%, #1a0e2e 100%);
+  background: linear-gradient(45deg, #45062c, #1e0213, #32021F);
+  padding: 24px;
+  text-align: center;
 
   h2 {
     font-family: 'AdverCase', sans-serif;
-    color: white;
+    color: #a8ff78;
     margin-bottom: 16px;
+    font-weight: 400;
   }
 
   p {
     font-family: 'Sanchez', serif;
     color: rgba(255, 255, 255, 0.6);
-    margin-bottom: 24px;
+    margin-bottom: 16px;
   }
 
+  .status-btn,
   .back-button {
     font-family: 'Sanchez', serif;
     background: #a8ff78;
@@ -247,29 +553,23 @@ h2 {
     padding: 12px 32px;
     text-decoration: none;
     font-weight: 600;
-    transition: opacity 0.2s ease;
-
-    &:hover {
-      opacity: 0.9;
-    }
+    border: none;
+    cursor: pointer;
   }
 }
 
 @media (max-width: 768px) {
-  .lyric-row {
+  .vibe-donut-wrap {
     grid-template-columns: 1fr;
-    gap: 12px;
+    padding: 24px 20px;
+    gap: 24px;
   }
 
-  .theme-label {
-    justify-self: start;
+  .donut-legend {
+    max-height: none;
   }
 
-  .results-header h1 {
-    font-size: 36px;
-  }
-
-  .words-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .song-grid {
+    grid-template-columns: 1fr;
   }
 }

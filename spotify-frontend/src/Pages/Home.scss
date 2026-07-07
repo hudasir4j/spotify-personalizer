@@ -60,9 +60,38 @@
     &:hover {
       background-color: #a4cc48;
     }
-
-
   }
+
+.options-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 24px 0 8px;
+  width: min(320px, 90vw);
+
+  label {
+    font-family: 'Sanchez', serif;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.85rem;
+    text-align: left;
+  }
+
+  select {
+    font-family: 'Sanchez', serif;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+    font-size: 0.95rem;
+    cursor: pointer;
+
+    option {
+      background: #32021F;
+      color: white;
+    }
+  }
+}
 
 
 .music-note {
