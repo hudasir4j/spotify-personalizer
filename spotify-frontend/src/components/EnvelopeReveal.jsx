@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { unlockAudioPlayback } from "../utils/audioUnlock";
 import "./EnvelopeReveal.scss";
 
 function EnvelopeReveal({ onReveal, teaser }) {
@@ -7,6 +8,7 @@ function EnvelopeReveal({ onReveal, teaser }) {
 
   const open = useCallback(() => {
     if (phase !== "closed") return;
+    unlockAudioPlayback();
     setPhase("opening");
     setTimeout(() => {
       setPhase("done");

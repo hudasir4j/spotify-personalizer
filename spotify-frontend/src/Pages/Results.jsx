@@ -10,25 +10,75 @@ function Results() {
   const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
+    const sessionId = sessionStorage.getItem("session_id");
+    if (!sessionId) {
+      setError("No session found — please log in again.");
+      return undefined;
+    }
+
+    let cancelled = false;
+    let pollTimer = null;
+
     const fetchResults = async () => {
-      const sessionId = sessionStorage.getItem("session_id");
-      if (!sessionId) {
-        setError("No session found — please log in again.");
-        return;
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 12000);
+        const res = await fetch(
+          `${process.env.REACT_APP_BACKEND_URL}/api/results?session_id=${sessionId}`,
+          { signal: controller.signal }
+        );
+        clearTimeout(timeout);
+        const json = await res.json();
+        if (cancelled) return;
+        if (res.ok) {
+          setData(json);
+          if (json.status !== "complete") {
+            pollTimer = setTimeout(fetchResults, 2000);
+          }
+        } else {
+          setError(json.error);
+        }
+      } catch {
+        if (!cancelled) {
+          setError("Server unavailable — try refreshing or log in again.");
+        }
       }
+    };
+
+    fetchResults();
+    return () => {
+      cancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!data || data.previews_ready) return undefined;
+
+    const sessionId = sessionStorage.getItem("session_id");
+    if (!sessionId) return undefined;
+
+    const timer = setInterval(async () => {
       try {
         const res = await fetch(
           `${process.env.REACT_APP_BACKEND_URL}/api/results?session_id=${sessionId}`
         );
         const json = await res.json();
-        if (res.ok) setData(json);
-        else setError(json.error);
+        if (res.ok) {
+          setData(json);
+          if (json.previews_ready) clearInterval(timer);
+        }
       } catch {
-        setError("Server unavailable");
+        /* keep polling briefly */
       }
+    }, 2500);
+
+    const stop = setTimeout(() => clearInterval(timer), 45000);
+    return () => {
+      clearInterval(timer);
+      clearTimeout(stop);
     };
-    fetchResults();
-  }, []);
+  }, [data?.previews_ready]);
 
   if (error) {
     return (

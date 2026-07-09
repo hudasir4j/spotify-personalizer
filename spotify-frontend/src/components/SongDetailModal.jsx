@@ -1,5 +1,19 @@
 import React, { useEffect } from "react";
 import { motion } from "framer-motion";
+import SpotifyEmbed from "./SpotifyEmbed";
+
+const LANG_LABELS = {
+  es: "español",
+  fr: "français",
+  de: "deutsch",
+  pt: "português",
+  it: "italiano",
+  ja: "日本語",
+  ko: "한국어",
+  zh: "中文",
+  hi: "हिन्दी",
+  ar: "العربية",
+};
 
 function SongDetailModal({ song, onClose }) {
   useEffect(() => {
@@ -9,6 +23,11 @@ function SongDetailModal({ song, onClose }) {
   }, [onClose]);
 
   if (!song) return null;
+
+  const langLabel =
+    song.language && song.language !== "en"
+      ? LANG_LABELS[song.language] || song.language
+      : null;
 
   return (
     <motion.div
@@ -33,11 +52,20 @@ function SongDetailModal({ song, onClose }) {
         <button type="button" className="modal-close" onClick={onClose} aria-label="Close">
           ×
         </button>
-        {song.album_art && (
-          <img src={song.album_art} alt="" className="modal-art" />
+
+        {(song.track_id || song.preview_url) && (
+          <SpotifyEmbed trackId={song.track_id} previewUrl={song.preview_url} />
         )}
+
         <div className="modal-body">
-          <p className="modal-vibe">{song.theme}</p>
+          <div className="modal-meta">
+            <p className="modal-vibe">{song.theme}</p>
+            {langLabel && (
+              <span className="lang-badge" title="Lyrics analyzed via translation">
+                {langLabel}
+              </span>
+            )}
+          </div>
           <blockquote>"{song.line}"</blockquote>
           <h3 id="song-modal-title">{song.song}</h3>
           <p className="modal-artist">{song.artist}</p>

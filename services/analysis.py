@@ -311,13 +311,36 @@ def pick_iconic_line(lyrics):
     lines = clean_lyrics(lyrics)
     if not lines:
         return "", "neutral"
+    return _pick_best_from_lines(lines)
 
+
+def pick_iconic_line_bilingual(original_lyrics, analysis_lyrics):
+    """Pick display line from original; score using English analysis text when translated."""
+    orig_lines = clean_lyrics(original_lyrics)
+    if not orig_lines:
+        return "", "neutral", False
+
+    analysis_lines = clean_lyrics(analysis_lyrics or original_lyrics)
+    if len(analysis_lines) == len(orig_lines):
+        best_line, raw_theme, best_idx = _pick_best_from_lines(
+            analysis_lines, return_index=True
+        )
+        display_line = orig_lines[best_idx]
+        translated_display = display_line != best_line
+        return display_line, raw_theme, translated_display
+
+    display_line, raw_theme = _pick_best_from_lines(orig_lines)
+    return display_line, raw_theme, False
+
+
+def _pick_best_from_lines(lines, return_index=False):
     counts = Counter(_normalize_line(line) for line in lines)
     textrank_boosts = _textrank_boost(lines)
 
+    best_idx = 0
     best_line = lines[0]
     best_score = -1.0
-    for line in lines:
+    for i, line in enumerate(lines):
         normalized = _normalize_line(line)
         repetition = counts[normalized]
         rep_score = min(repetition, 4) * 1.5
@@ -331,8 +354,11 @@ def pick_iconic_line(lyrics):
         if score > best_score:
             best_score = score
             best_line = line
+            best_idx = i
 
     theme = classify_theme_from_lyrics(lines, best_line)
+    if return_index:
+        return best_line, theme, best_idx
     return best_line, theme
 
 
@@ -369,6 +395,52 @@ def _build_vibe_context(title, artist, line, lines, genres=None):
     if snippet:
         parts.append(f"Lyrics excerpt: {snippet}")
     return " ".join(parts)[:900]
+
+
+def _hf_multilingual_sentiment(text):
+    token = _get_hf_token()
+    if not token:
+        return None
+    try:
+        resp = requests.post(
+            "https://api-inference.huggingface.co/models/tabularisai/multilingual-sentiment-analysis",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"inputs": text[:512]},
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        if isinstance(data, list) and data:
+            item = data[0]
+            if isinstance(item, list) and item:
+                item = max(item, key=lambda x: x.get("score", 0))
+            return item.get("label"), item.get("score", 0)
+        return None
+    except requests.RequestException:
+        return None
+
+
+_SENTIMENT_THEME_MAP = {
+    "Very Positive": "joy",
+    "Positive": "hope",
+    "Neutral": "nostalgia",
+    "Negative": "loss",
+    "Very Negative": "heartbreak",
+}
+
+
+def _apply_ml_sentiment_boost(scores, ml_result):
+    if not ml_result:
+        return
+    label, confidence = ml_result
+    if confidence < 0.35:
+        return
+    raw = _SENTIMENT_THEME_MAP.get(label)
+    if not raw:
+        return
+    for vibe, profile in VIBE_PROFILES.items():
+        scores[vibe] += profile["raw_boost"].get(raw, 0) * confidence * 0.8
 
 
 def _hf_zero_shot_theme(text):
@@ -518,11 +590,15 @@ def assign_aesthetic_vibe(title, artist, line, raw_theme, genres, lyrics="", aud
     full_text = " ".join(lines).lower()
 
     context = _build_vibe_context(title, artist, line, lines, genres)
+    scores, compound = _score_vibes(title, artist, line, raw_theme, genres, lines, audio)
+
     hf_vibe = _hf_zero_shot_vibe(context)
     if hf_vibe:
-        return hf_vibe
+        scores[hf_vibe] = scores.get(hf_vibe, 0) + 5.0
 
-    scores, compound = _score_vibes(title, artist, line, raw_theme, genres, lines, audio)
+    ml_result = _hf_multilingual_sentiment(context[:512])
+    _apply_ml_sentiment_boost(scores, ml_result)
+
     ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
     best_vibe, best_score = ranked[0]
     second_score = ranked[1][1] if len(ranked) > 1 else 0
@@ -544,6 +620,21 @@ def assign_aesthetic_vibe(title, artist, line, raw_theme, genres, lyrics="", aud
         return fallbacks.get(raw_theme, best_vibe if best_score > 0 else "main character")
 
     return best_vibe
+
+
+def get_listening_eras(highlights, limit=4):
+    groups = {}
+    for song in highlights:
+        vibe = song.get("theme")
+        if not vibe:
+            continue
+        if vibe not in groups:
+            groups[vibe] = {"vibe": vibe, "count": 0, "songs": []}
+        groups[vibe]["count"] += 1
+        groups[vibe]["songs"].append(
+            {"song": song["song"], "artist": song["artist"], "line": song["line"]}
+        )
+    return sorted(groups.values(), key=lambda e: e["count"], reverse=True)[:limit]
 
 
 def get_top_words(highlights):

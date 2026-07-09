@@ -6,6 +6,8 @@ from pathlib import Path
 import lyricsgenius
 import requests
 
+from services.language import prepare_lyrics_for_analysis
+
 CACHE_DIR = Path(__file__).resolve().parent.parent / ".cache" / "lyrics"
 LRCLIB_HEADERS = {"User-Agent": "spotify-personalizer/1.0 (local dev)"}
 
@@ -40,15 +42,22 @@ def _read_cache(track_id):
         return None
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        return data.get("lyrics")
+        if "bundle" in data:
+            return data["bundle"]
+        lyrics = data.get("lyrics")
+        if not lyrics:
+            return None
+        bundle = prepare_lyrics_for_analysis(lyrics)
+        bundle["source"] = data.get("source", "unknown")
+        return bundle
     except (json.JSONDecodeError, OSError):
         return None
 
 
-def _write_cache(track_id, lyrics, source):
+def _write_cache(track_id, bundle):
     path = _cache_path(track_id)
     path.write_text(
-        json.dumps({"lyrics": lyrics, "source": source}, ensure_ascii=False),
+        json.dumps({"bundle": bundle}, ensure_ascii=False),
         encoding="utf-8",
     )
 
@@ -108,26 +117,38 @@ def _fetch_genius(title, artist):
     return None
 
 
-def get_song_lyrics(title, artist, album, duration_ms, track_id):
+def get_song_lyrics_bundle(title, artist, album, duration_ms, track_id):
     cached = _read_cache(track_id)
     if cached:
         return cached
 
     duration_sec = max(1, int(duration_ms / 1000))
     source = None
+    raw = None
 
-    lyrics = _fetch_lrclib(title, artist, album, duration_sec, cached_only=True)
-    if lyrics:
+    raw = _fetch_lrclib(title, artist, album, duration_sec, cached_only=True)
+    if raw:
         source = "lrclib"
-    if not lyrics:
-        lyrics = _fetch_lrclib(title, artist, album, duration_sec, cached_only=False)
-        if lyrics:
+    if not raw:
+        raw = _fetch_lrclib(title, artist, album, duration_sec, cached_only=False)
+        if raw:
             source = "lrclib"
-    if not lyrics:
-        lyrics = _fetch_genius(title, artist)
-        if lyrics:
+    if not raw:
+        raw = _fetch_genius(title, artist)
+        if raw:
             source = "genius"
 
-    if lyrics:
-        _write_cache(track_id, lyrics, source or "unknown")
-    return lyrics
+    if not raw:
+        return None
+
+    bundle = prepare_lyrics_for_analysis(raw)
+    bundle["source"] = source or "unknown"
+    _write_cache(track_id, bundle)
+    return bundle
+
+
+def get_song_lyrics(title, artist, album, duration_ms, track_id):
+    bundle = get_song_lyrics_bundle(title, artist, album, duration_ms, track_id)
+    if not bundle:
+        return None
+    return bundle["original"]

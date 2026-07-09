@@ -18,8 +18,14 @@ from spotipy.oauth2 import SpotifyOAuth
 if os.environ.get("PYTHON_ENV") == "local":
     load_dotenv(".env.local")
 
-from services.analysis import assign_aesthetic_vibe, get_top_words, pick_iconic_line
-from services.lyrics import get_song_lyrics, init_genius
+from services.analysis import (
+    assign_aesthetic_vibe,
+    get_listening_eras,
+    get_top_words,
+    pick_iconic_line_bilingual,
+)
+from services.lyrics import get_song_lyrics_bundle, init_genius
+from services.previews import resolve_preview_url
 
 CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID")
 CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
@@ -126,11 +132,12 @@ def _update_aggregates(highlights):
         "highlights": highlights,
         "themes": [{"theme": k, "count": v} for k, v in counts.items()],
         "top_words": get_top_words(highlights) if highlights else [],
+        "eras": get_listening_eras(highlights) if highlights else [],
     }
 
 
 def _process_track(track, genre_cache):
-    title, artist, track_id, album, duration_ms, artist_id, access_token, album_art = track
+    title, artist, track_id, album, duration_ms, artist_id, access_token, album_art, preview_url = track
     try:
         sp = None
         try:
@@ -150,33 +157,29 @@ def _process_track(track, genre_cache):
             genres = []
             genre_cache[artist_id] = genres
 
-        lyrics = get_song_lyrics(title, artist, album, duration_ms, track_id)
-        if not lyrics:
+        bundle = get_song_lyrics_bundle(title, artist, album, duration_ms, track_id)
+        if not bundle:
             return None
 
-        line, raw_theme = pick_iconic_line(lyrics)
+        original = bundle["original"]
+        analysis_text = bundle["analysis_text"]
+        line, raw_theme, _ = pick_iconic_line_bilingual(original, analysis_text)
         if not line:
             return None
-
-        audio = None
-        if sp:
-            try:
-                features = sp.audio_features([track_id])
-                if features and features[0]:
-                    audio = features[0]
-            except Exception:
-                audio = None
 
         return {
             "song": title,
             "artist": artist,
             "line": line,
             "theme": assign_aesthetic_vibe(
-                title, artist, line, raw_theme, genres, lyrics, audio
+                title, artist, line, raw_theme, genres, analysis_text
             ),
             "genres": genres[:3],
             "album_art": album_art,
             "track_id": track_id,
+            "preview_url": preview_url,
+            "language": bundle.get("language", "en"),
+            "translated_for_analysis": bundle.get("translated", False),
         }
     except Exception as exc:
         print(f"Failed to process {title} by {artist}: {exc}")
@@ -285,6 +288,7 @@ def process_songs(
                 duration_ms = track.get("duration_ms", 0)
                 images = track.get("album", {}).get("images") or []
                 album_art = images[0]["url"] if images else None
+                preview_url = track.get("preview_url")
                 track_data.append(
                     (
                         title,
@@ -295,8 +299,22 @@ def process_songs(
                         artist_id,
                         token["access_token"],
                         album_art,
+                        preview_url,
                     )
                 )
+
+            # Re-fetch previews with US market — improves availability vs top_tracks alone
+            if track_data:
+                ids = [t[2] for t in track_data]
+                try:
+                    detailed = sp.tracks(ids, market="US")["tracks"]
+                    refreshed = []
+                    for row, detail in zip(track_data, detailed):
+                        url = (detail or {}).get("preview_url") or row[8]
+                        refreshed.append((*row[:8], url))
+                    track_data = refreshed
+                except Exception:
+                    pass
 
             total = len(track_data)
             duplicates_skipped = len(top_tracks) - total
@@ -305,7 +323,7 @@ def process_songs(
                 session_data[session_id] = {
                     "status": "processing",
                     "progress": {"done": 0, "total": total},
-                    "data": {"highlights": [], "themes": [], "top_words": []},
+                    "data": {"highlights": [], "themes": [], "top_words": [], "eras": []},
                     "time_range": time_range,
                     "requested_limit": limit,
                     "duplicates_skipped": duplicates_skipped,
@@ -340,18 +358,74 @@ def process_songs(
             return JSONResponse(status_code=500, content={"error": error_text})
 
 
+def _backfill_preview_urls(highlights):
+    missing = [
+        h for h in highlights
+        if not h.get("preview_url") and h.get("track_id")
+    ]
+    if not missing:
+        return False
+
+    def resolve_one(highlight):
+        url = resolve_preview_url(
+            highlight["track_id"],
+            title=highlight.get("song"),
+            artist=highlight.get("artist"),
+        )
+        if url:
+            highlight["preview_url"] = url
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        list(executor.map(resolve_one, missing))
+
+    return True
+
+
+def _backfill_session_previews(session_id):
+    with session_lock:
+        session = session_data.get(session_id)
+        if not session or session.get("previews_backfilled"):
+            return
+        highlights = list(session["data"].get("highlights", []))
+
+    _backfill_preview_urls(highlights)
+
+    with session_lock:
+        session = session_data.get(session_id)
+        if not session:
+            return
+        session["data"]["highlights"] = highlights
+        session["previews_backfilled"] = True
+
+    _save_session(session_id)
+
+
 @app.get("/api/results")
-def get_results(session_id: str):
+def get_results(session_id: str, background_tasks: BackgroundTasks):
     with session_lock:
         session = session_data.get(session_id)
         if not session:
             return JSONResponse(status_code=404, content={"error": "No data available"})
+
+        if (
+            session.get("status") == "complete"
+            and not session.get("previews_backfilled")
+            and not session.get("previews_backfill_started")
+        ):
+            session["previews_backfill_started"] = True
+            background_tasks.add_task(_backfill_session_previews, session_id)
+
+        highlights = session["data"].get("highlights", [])
+        all_have_previews = bool(highlights) and all(
+            h.get("preview_url") for h in highlights
+        )
         payload = {
             **session["data"],
             "status": session["status"],
             "progress": session["progress"],
             "time_range": session.get("time_range"),
-            "total_songs": len(session["data"]["highlights"]),
+            "total_songs": len(highlights),
+            "previews_ready": session.get("previews_backfilled", False) or all_have_previews,
         }
     return payload
 
