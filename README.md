@@ -1,5 +1,3 @@
-# Spotify Personalizer
-
 **Turn your Spotify listening history into an NLP-powered emotional breakdown** — lyric extraction, sentiment analysis, zero-shot vibe classification, and an interactive scroll journey through your top tracks.
 
 Built as a full-stack ML application to practice real-world NLP pipelines, API orchestration, and production-minded engineering (caching, concurrency, fallbacks).
@@ -19,6 +17,16 @@ Built as a full-stack ML application to practice real-world NLP pipelines, API o
 3. Runs a **hybrid NLP pipeline** on each song: language detection, translation, line scoring, theme classification, and aesthetic vibe assignment.
 4. Returns a personalized breakdown: iconic lyric lines, emotional themes, word frequencies, listening eras, and scroll-synced audio previews.
 5. Presents results in a **scrollytelling UI** — chapter-based vibe journey, word cloud, share card, and envelope reveal.
+
+---
+
+## Demo
+
+<img width="3024" height="1720" alt="load in" src="https://github.com/user-attachments/assets/abc9719a-c592-4eed-bc57-1a2bdf4353c1" />
+<img width="3024" height="1720" alt="analyzing" src="https://github.com/user-attachments/assets/b27732bc-e2aa-4ca0-9c8d-845e3468cd44" />
+<img width="3024" height="1720" alt="results" src="https://github.com/user-attachments/assets/a2510d98-8f11-438a-8c5c-c54e5d2c9512" />
+<img width="3024" height="1720" alt="lip 1" src="https://github.com/user-attachments/assets/9b886054-7c91-49b6-84f8-3173121f8ff3" />
+<img width="3024" height="1720" alt="results graph" src="https://github.com/user-attachments/assets/6e6c4b0e-4fb4-43f2-b21e-be67cc65f2d8" />
 
 ---
 
@@ -167,30 +175,6 @@ cd spotify-frontend && npm start
 ```
 
 Open `http://127.0.0.1:3000`, log in with Spotify, and wait for analysis to complete.
-
----
-
-## AI Usage Disclosure
-
-AI coding assistants were used for scaffolding, debugging, and exploring API options (e.g. which HF models fit zero-shot vs sentiment tasks). **Core NLP logic, scoring weights, pipeline design, and most implementation were written and iterated on directly** — this was intentionally a learning project on a new backend stack.
-
----
-
-## Roadmap
-
-- [ ] Context-aware sentiment (verse-level transformers vs line-level VADER)
-- [ ] Offline / fine-tuned vibe classifier with labeled evaluation set
-- [ ] Synced lyrics (LRC karaoke) during scroll journey
-- [ ] A/B testing vibe label quality across model versions
-
----
-
-## Demo
-
-<img width="1508" height="899" alt="Home — Spotify login and time range selection" src="https://github.com/user-attachments/assets/cf7062d1-fa83-49b2-ac92-1fb5040bad51" />
-<img width="1497" height="882" alt="Loading — progressive track analysis" src="https://github.com/user-attachments/assets/6492d0ee-ee29-4ad6-9496-c5327b97e0b1" />
-<img width="1497" height="856" alt="Results — emotional themes and word cloud" src="https://github.com/user-attachments/assets/d5af450f-0ef1-4040-a770-77a6ef3e539b" />
-<img width="1482" height="878" alt="Results — song highlights" src="https://github.com/user-attachments/assets/be7c7db3-5c96-4770-8763-55677075ec77" />
 
 ---
 
